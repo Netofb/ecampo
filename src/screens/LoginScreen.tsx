@@ -151,7 +151,7 @@ const LoginScreen: React.FC = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.content}>
-          <Text style={styles.title}>Bem-vindo</Text>
+          <Text style={styles.title}>Bem-vindo ao eCampo</Text>
           <Text style={styles.subtitle}>Faça login com seu CPF e senha</Text>
 
           <Input
@@ -172,6 +172,7 @@ const LoginScreen: React.FC = () => {
             placeholder="Digite sua senha"
             secureTextEntry
             error={passwordError}
+            
           />
 
           <TouchableOpacity 
@@ -192,28 +193,6 @@ const LoginScreen: React.FC = () => {
               <Text style={styles.buttonText}>Entrar</Text>
             )}
           </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>ou</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.button, styles.googleButton]}
-            onPress={handleGoogleLogin}
-          >
-            <Text style={[styles.buttonText, styles.googleButtonText]}>
-              Entrar com Google
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Não tem uma conta? </Text>
-            <TouchableOpacity onPress={navigateToRegister}>
-              <Text style={styles.footerLink}>Cadastre-se</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -237,13 +216,13 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 15,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 40,
+    marginBottom: 100,
     textAlign: 'center',
   },
   forgotPassword: {
@@ -255,7 +234,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#4e73df',
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',

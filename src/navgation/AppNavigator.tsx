@@ -119,9 +119,9 @@ const AppNavigator: React.FC = () => {
         screenOptions={{
           headerShown: true,
           headerStyle: {
-            backgroundColor: '#2ecc71',
+            backgroundColor: '#ffffff',
           },
-          headerTintColor: '#fff',
+          headerTintColor: '#05b522',
           headerTitleStyle: {
             fontWeight: 'bold',
           },
@@ -149,7 +149,7 @@ const AppNavigator: React.FC = () => {
               name="Home" 
               component={HomeScreen}
               options={{ 
-                title: 'ecampo - Inicio',
+                title: 'eCampo - Inicio',
                 headerLeft: () => null, // Remove botão voltar na Home
               }}
             />

@@ -394,10 +394,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
+    
   },
   menuButton: {
     padding: 8,
