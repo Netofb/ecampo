@@ -16,7 +16,7 @@ import HomeScreen from '../screens/HomeScreen';
 import CadastroFace from '../screens/screensCadastro/CadastroFace';
 import CadastroQuarteirao from '../screens/screensCadastro/CadastroQuarteirao';
 import CadastroImovel from '../screens/screensCadastro/CadastroImovel';
-import CadastroLocalidade from '../screens/screensCadastro/CadastroLocalidade';
+
 
 // TELAS DE PRODUÇÃO
 import ProducaoInicio from '../screens/screensProducao/ProducaoInicio';
@@ -170,11 +170,7 @@ const AppNavigator: React.FC = () => {
               component={CadastroImovel}
               options={{ title: 'Cadastro de Imóvel' }}
             />
-            <Stack.Screen 
-              name="CadastroLocalidade" 
-              component={CadastroLocalidade}
-              options={{ title: 'Cadastro de Localidade' }}
-            />
+        
             
             {/* TELAS DE PRODUÇÃO */}
             <Stack.Screen 

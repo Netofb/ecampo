@@ -101,7 +101,7 @@ const HomeScreen: React.FC = () => {
         { id: 11, label: 'Cadastrar Quarteirão', screen: 'CadastroQuarteirao', icon: '📍' },
         { id: 12, label: 'Cadastrar Face', screen: 'CadastroFace', icon: '🏠' },
         { id: 13, label: 'Cadastrar Imóvel', screen: 'CadastroImovel', icon: '🏢' },
-        { id: 14, label: 'Cadastrar Localidade', screen: 'CadastroLocalidade', icon: '🗺️' },
+       
       ]
     },
     { 
