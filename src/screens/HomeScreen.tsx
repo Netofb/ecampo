@@ -13,7 +13,8 @@ import {
   Image
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../services/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from '../services/api';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navgation/AppNavigator';
 // Importe do safe-area-context
@@ -168,9 +169,9 @@ const HomeScreen: React.FC = () => {
 
   const loadUserData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setUserEmail(user.email);
+      const userCPF = await AsyncStorage.getItem('userCPF');
+      if (userCPF) {
+        setUserEmail(userCPF);
       }
     } catch (error) {
       console.error('Erro ao carregar dados do usuário:', error);
@@ -189,11 +190,11 @@ const HomeScreen: React.FC = () => {
           text: 'Sair',
           style: 'destructive',
           onPress: async () => {
-            await supabase.auth.signOut();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' as never }],
-            });
+            await AsyncStorage.removeItem('authToken');
+            await AsyncStorage.removeItem('userId');
+            await AsyncStorage.removeItem('userCPF');
+            await authService.logout();
+            // O AppNavigator vai detectar automaticamente e redirecionar para Login
           },
         },
       ]

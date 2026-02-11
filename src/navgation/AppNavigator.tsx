@@ -2,8 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { supabase } from '../services/supabase';
 import { ActivityIndicator, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from '../services/api';
 
 // TELAS DE AUTENTICAÇÃO
 import LoginScreen from '../screens/LoginScreen';
@@ -83,26 +84,31 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar sessão atual
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    // Ouvir mudanças na sessão
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
+    const checkAuthStatus = async () => {
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        const userId = await AsyncStorage.getItem('userId');
+        
+        if (token && userId) {
+          authService.setToken(token);
+          authService.setUserId(userId);
+          setIsLoggedIn(true);
+        } else {
+          setIsLoggedIn(false);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar autenticação:', error);
+        setIsLoggedIn(false);
+      } finally {
+        setLoading(false);
       }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
     };
+
+    checkAuthStatus();
   }, []);
 
   if (loading) {
@@ -127,7 +133,7 @@ const AppNavigator: React.FC = () => {
           },
         }}
       >
-        {!session ? (
+        {isLoggedIn === false ? (
           // USUÁRIO NÃO LOGADO - TELAS PÚBLICAS
           <>
             <Stack.Screen 

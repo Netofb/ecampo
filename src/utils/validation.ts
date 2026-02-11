@@ -42,7 +42,6 @@ export const validateCPF = (cpf: string): string => {
 
 export const validatePassword = (password: string): string => {
   if (!password) return 'Senha é obrigatória';
-  if (password.length < 6) return 'Mínimo 6 caracteres';
   return '';
 };
 

@@ -11,10 +11,11 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import Input from '../components/Input';
 import { validateCPF, validatePassword } from '../utils/validation';
-import { supabase } from '../services/supabase';
+import { authService } from '../services/api';
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -60,57 +61,17 @@ const LoginScreen: React.FC = () => {
     setLoading(true);
 
     try {
-      // Gerar o mesmo email fictício usado no registro
-      const fakeEmail = `${cleanedCPF}@cpf.local`;
+      const response = await authService.login(cleanedCPF, password);
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: fakeEmail,
-        password,
-      });
-
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          Alert.alert('Erro no login', 'CPF ou senha incorretos');
-        } else {
-          Alert.alert('Erro no login', 'Não foi possível fazer login. Verifique seus dados.');
-        }
-        return;
-      }
-
-      if (data.user) {
-        // Verificar se o perfil existe na tabela users, se não, criar
-        try {
-          const { data: profileData, error: profileError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', data.user.id)
-            .maybeSingle();
-
-          if (!profileData) {
-            // Criar perfil se não existir
-            await supabase
-              .from('users')
-              .insert([
-                {
-                  id: data.user.id,
-                  cpf: cleanedCPF,
-                  created_at: new Date().toISOString(),
-                },
-              ]);
-          }
-        } catch (profileErr) {
-          console.log('Erro ao verificar/criar perfil:', profileErr);
-          // Continua mesmo com erro no perfil
-        }
-
-        // Login bem sucedido - navegar para Home
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' as never }],
-        });
-      }
+      await AsyncStorage.setItem('authToken', response.token);
+      await AsyncStorage.setItem('userId', String(response.user.id));
+      await AsyncStorage.setItem('userCPF', cleanedCPF);
+      
+      authService.setToken(response.token);
+      authService.setUserId(String(response.user.id));
     } catch (error: any) {
-      Alert.alert('Erro', 'Ocorreu um erro ao fazer login. Tente novamente.');
+      const message = error.message || 'Ocorreu um erro ao fazer login. Tente novamente.';
+      Alert.alert('Erro no login', message);
       console.error('Erro no login:', error);
     } finally {
       setLoading(false);
@@ -118,18 +79,11 @@ const LoginScreen: React.FC = () => {
   };
 
   const handleGoogleLogin = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'myapp://auth-callback',
-        },
-      });
-
-      if (error) throw error;
-    } catch (error: any) {
-      Alert.alert('Erro', error.message);
-    }
+    Alert.alert(
+      'Google Login',
+      'O login com Google ainda não está configurado nesta versão.',
+      [{ text: 'OK' }]
+    );
   };
 
   const navigateToRegister = () => {

@@ -32,8 +32,13 @@ yarn-error.*
 
 # local env files
 .env*.local
-# main env file
+
+# Environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +46,62 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/*.log
+
+# Database
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Build outputs
+build/
+out/
+
+# Scripts temporários
+backend/check-*.js
+backend/migrate-*.js

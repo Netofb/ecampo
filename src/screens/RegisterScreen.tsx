@@ -11,6 +11,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import Input from '../components/Input';
 import {
@@ -18,7 +19,7 @@ import {
   validatePassword,
   validateConfirmPassword,
 } from '../utils/validation';
-import { supabase } from '../services/supabase';
+import { authService } from '../services/api';
 
 const RegisterScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -68,65 +69,31 @@ const RegisterScreen: React.FC = () => {
     setLoading(true);
 
     try {
-      // 1. Gerar email fictício baseado no CPF (obrigatório para Supabase Auth)
-      const fakeEmail = `${cleanedCPF}@cpf.local`;
+      // Registrar no novo backend
+      const response = await authService.register(cleanedCPF, password);
 
-      // 2. Registrar no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: fakeEmail,
-        password,
-        options: {
-          data: {
-            cpf: cleanedCPF,
+      // Persistir o token e userId no AsyncStorage
+      await AsyncStorage.setItem('authToken', response.token);
+      await AsyncStorage.setItem('userId', response.user.id);
+      await AsyncStorage.setItem('userCPF', cleanedCPF);
+
+      // Sucesso - navegar para Home
+      Alert.alert(
+        'Conta criada!',
+        'Cadastro realizado com sucesso!',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' as never }],
+            }),
           },
-        },
-      });
-
-      if (authError) {
-        if (authError.message.includes('already registered')) {
-          Alert.alert('CPF já cadastrado', 'Este CPF já possui uma conta. Faça login.');
-        } else {
-          Alert.alert('Erro no cadastro', 'Não foi possível criar a conta. Tente novamente.');
-        }
-        return;
-      }
-
-      if (authData.user) {
-        // 3. Criar perfil na tabela users
-        try {
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert([
-              {
-                id: authData.user.id,
-                cpf: cleanedCPF,
-                created_at: new Date().toISOString(),
-              },
-            ]);
-
-          if (profileError) {
-            console.log('Erro ao criar perfil:', profileError.message);
-            // Mesmo com erro no perfil, o usuário foi criado no auth
-            // Pode fazer login normalmente
-          }
-        } catch (profileErr) {
-          console.log('Erro ao criar perfil:', profileErr);
-        }
-
-        // 4. Sucesso
-        Alert.alert(
-          'Conta criada!',
-          'Cadastro realizado com sucesso. Agora faça login.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login' as never),
-            },
-          ]
-        );
-      }
+        ]
+      );
     } catch (error: any) {
-      Alert.alert('Erro', 'Não foi possível criar a conta. Tente novamente.');
+      const message = error.message || 'Não foi possível criar a conta. Tente novamente.';
+      Alert.alert('Erro no cadastro', message);
       console.error('Erro no registro:', error);
     } finally {
       setLoading(false);
@@ -162,7 +129,7 @@ const RegisterScreen: React.FC = () => {
             label="Senha"
             value={password}
             onChangeText={setPassword}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Digite sua senha"
             secureTextEntry
             error={passwordError}
           />
@@ -175,10 +142,6 @@ const RegisterScreen: React.FC = () => {
             secureTextEntry
             error={confirmPasswordError}
           />
-
-          <Text style={styles.passwordRequirements}>
-            • A senha deve ter no mínimo 6 caracteres
-          </Text>
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}

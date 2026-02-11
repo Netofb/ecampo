@@ -1,0 +1,337 @@
+// API Service - Replaces Supabase
+// IMPORTANTE: No Android Emulator, use 10.0.2.2 em vez de localhost
+// No iOS Simulator e desenvolvimento local, use localhost
+const API_BASE_URL = 'http://10.0.2.2:3333/api'; // Android Emulator
+// const API_BASE_URL = 'http://localhost:3333/api'; // iOS Simulator / Local dev
+// const API_BASE_URL = 'http://192.168.0.107:3333/api'; // Seu IP (para rede corporativa) trabaljo
+// const API_BASE_URL = 'http://192.168.1.15:3333/api'; // Seu IP (para rede corporativa) casa
+
+class AuthService {
+  private token: string | null = null;
+  private userId: string | null = null;
+
+  setToken(token: string) {
+    this.token = token;
+  }
+
+  getToken(): string | null {
+    return this.token;
+  }
+
+  setUserId(userId: string) {
+    this.userId = userId;
+  }
+
+  getUserId(): string | null {
+    return this.userId;
+  }
+
+  getAuthHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: this.token ? `Bearer ${this.token}` : '',
+    };
+  }
+
+  async register(cpf: string, password: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf, password }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Registration failed');
+      }
+
+      const data = await response.json();
+      this.token = data.token;
+      this.userId = data.userId.toString();
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async login(cpf: string, password: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf, password }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Login failed');
+      }
+
+      const data = await response.json();
+      this.token = data.token;
+      this.userId = data.userId.toString();
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getProfile() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to get profile');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async logout() {
+    this.token = null;
+    this.userId = null;
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.token;
+  }
+}
+
+class QuarteiraoService {
+  private authService: AuthService;
+
+  constructor(authService: AuthService) {
+    this.authService = authService;
+  }
+
+  async list() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/quarteiroes`, {
+        method: 'GET',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('Error response:', errorText);
+        throw new Error('Failed to fetch quarteirões');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Quarteirão list error:', error);
+      throw error;
+    }
+  }
+
+  async create(data: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/quarteiroes`, {
+        method: 'POST',
+        headers: this.authService.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create quarteirao');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async update(id: number, data: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/quarteiroes/${id}`, {
+        method: 'PUT',
+        headers: this.authService.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update quarteirao');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async delete(id: number) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/quarteiroes/${id}`, {
+        method: 'DELETE',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete quarteirao');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+class FaceService {
+  private authService: AuthService;
+
+  constructor(authService: AuthService) {
+    this.authService = authService;
+  }
+
+  async list() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faces`, {
+        method: 'GET',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch faces');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async create(data: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faces`, {
+        method: 'POST',
+        headers: this.authService.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create face');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+class ImovelService {
+  private authService: AuthService;
+
+  constructor(authService: AuthService) {
+    this.authService = authService;
+  }
+
+  async list() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/imoveis`, {
+        method: 'GET',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch imoveis');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async create(data: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/imoveis`, {
+        method: 'POST',
+        headers: this.authService.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create imovel');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+class LocalidadeService {
+  private authService: AuthService;
+
+  constructor(authService: AuthService) {
+    this.authService = authService;
+  }
+
+  async list() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/localidades`, {
+        method: 'GET',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch localidades');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async create(data: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/localidades`, {
+        method: 'POST',
+        headers: this.authService.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create localidade');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+// Initialize services
+const authService = new AuthService();
+const quarteiraoService = new QuarteiraoService(authService);
+const faceService = new FaceService(authService);
+const imovelService = new ImovelService(authService);
+const localidadeService = new LocalidadeService(authService);
+
+export {
+  authService,
+  quarteiraoService,
+  faceService,
+  imovelService,
+  localidadeService,
+};

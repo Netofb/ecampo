@@ -14,8 +14,9 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../../services/supabase';
+import { quarteiraoService } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +31,7 @@ interface Quarteirao {
   area: number;
   data_cadastro: string;
   descricao?: string;
+  total_producoes?: number;
 }
 
 const CadastroQuarteirao: React.FC = () => {
@@ -55,33 +57,16 @@ const CadastroQuarteirao: React.FC = () => {
     descricao: '',
   });
 
-  // Dados mockados (usar até criar tabela)
-  const [quarteiroes, setQuarteiroes] = useState<Quarteirao[]>([
-    { id: '1', numero: 1, nome: 'Quarteirão Norte A', localidade: 'Fazenda São João', zona: 'Zona Norte', status: 'Ativo', area: 5.2, data_cadastro: '2024-01-15', descricao: 'Quarteirão principal da fazenda' },
-    { id: '2', numero: 2, nome: 'Quarteirão Sul B', localidade: 'Fazenda Santa Maria', zona: 'Zona Sul', status: 'Ativo', area: 3.8, data_cadastro: '2024-01-20', descricao: 'Área de pastagem' },
-    { id: '3', numero: 3, nome: 'Quarteirão Leste C', localidade: 'Fazenda São João', zona: 'Zona Leste', status: 'Inativo', area: 7.1, data_cadastro: '2024-01-25', descricao: 'Em processo de recuperação' },
-    { id: '4', numero: 4, nome: 'Quarteirão Oeste D', localidade: 'Fazenda Nova', zona: 'Zona Oeste', status: 'Ativo', area: 4.5, data_cadastro: '2024-02-01', descricao: 'Área de plantio' },
-    { id: '5', numero: 5, nome: 'Quarteirão Centro E', localidade: 'Fazenda São João', zona: 'Zona Central', status: 'Ativo', area: 6.3, data_cadastro: '2024-02-05', descricao: 'Área administrativa' },
-    { id: '6', numero: 6, nome: 'Quarteirão Nordeste F', localidade: 'Fazenda Santa Maria', zona: 'Zona Nordeste', status: 'Ativo', area: 8.2, data_cadastro: '2024-02-10', descricao: 'Expansão da fazenda' },
-    { id: '7', numero: 7, nome: 'Quarteirão Noroeste G', localidade: 'Fazenda São João', zona: 'Zona Noroeste', status: 'Inativo', area: 2.5, data_cadastro: '2024-02-15', descricao: 'Em reforma' },
-    { id: '8', numero: 8, nome: 'Quarteirão Sudeste H', localidade: 'Fazenda Nova', zona: 'Zona Sudeste', status: 'Ativo', area: 9.1, data_cadastro: '2024-02-20', descricao: 'Novo plantio' },
-    { id: '9', numero: 9, nome: 'Quarteirão Sudoeste I', localidade: 'Fazenda Santa Maria', zona: 'Zona Sudoeste', status: 'Ativo', area: 3.2, data_cadastro: '2024-02-25', descricao: 'Pastagem natural' },
-    { id: '10', numero: 10, nome: 'Quarteirão Central J', localidade: 'Fazenda São João', zona: 'Zona Central', status: 'Ativo', area: 4.8, data_cadastro: '2024-03-01', descricao: 'Próximo à sede' },
-    { id: '11', numero: 11, nome: 'Quarteirão Novo K', localidade: 'Fazenda Nova', zona: 'Zona Leste', status: 'Ativo', area: 5.7, data_cadastro: '2024-03-05', descricao: 'Recentemente adquirido' },
-    { id: '12', numero: 12, nome: 'Quarteirão Velho L', localidade: 'Fazenda São João', zona: 'Zona Oeste', status: 'Inativo', area: 2.3, data_cadastro: '2024-03-10', descricao: 'Área em descanso' },
-    { id: '13', numero: 13, nome: 'Quarteirão Grande M', localidade: 'Fazenda Santa Maria', zona: 'Zona Sul', status: 'Ativo', area: 12.5, data_cadastro: '2024-03-15', descricao: 'Maior quarteirão' },
-    { id: '14', numero: 14, nome: 'Quarteirão Pequeno N', localidade: 'Fazenda São João', zona: 'Zona Norte', status: 'Ativo', area: 1.8, data_cadastro: '2024-03-20', descricao: 'Quarteirão experimental' },
-    { id: '15', numero: 15, nome: 'Quarteirão Teste O', localidade: 'Fazenda Nova', zona: 'Zona Central', status: 'Inativo', area: 3.4, data_cadastro: '2024-03-25', descricao: 'Em testes' },
-  ]);
+  const [quarteiroes, setQuarteiroes] = useState<Quarteirao[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [tabelaExiste, setTabelaExiste] = useState(true);
 
   // Filtra quarteirões por busca
   const quarteiroesFiltrados = quarteiroes.filter(quarteirao =>
-    quarteirao.nome.toLowerCase().includes(busca.toLowerCase()) ||
-    quarteirao.localidade.toLowerCase().includes(busca.toLowerCase()) ||
-    quarteirao.zona.toLowerCase().includes(busca.toLowerCase())
+    (quarteirao.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
+    (quarteirao.localidade || '').toLowerCase().includes(busca.toLowerCase()) ||
+    (quarteirao.zona || '').toLowerCase().includes(busca.toLowerCase())
   );
 
   // Calcula paginação
@@ -100,35 +85,32 @@ const CadastroQuarteirao: React.FC = () => {
   const fim = inicio + itensPorPagina;
   const quarteiroesPagina = quarteiroesFiltrados.slice(inicio, fim);
 
-  // Carregar quarteirões com verificação de tabela
+  // Carregar quarteirões usando a nova API
   const carregarQuarteiroes = async () => {
     try {
       setLoading(true);
       
-      // Tentar carregar do Supabase
-      const { data, error } = await supabase
-        .from('quarteiroes')
-        .select('*')
-        .order('numero', { ascending: true });
-
-      if (error) {
-        // Se tabela não existe, usar dados mockados
-        if (error.code === 'PGRST205' || error.message.includes('Could not find the table')) {
-          console.log('Tabela não existe ainda, usando dados mockados');
-          setTabelaExiste(false);
-          // Já temos dados mockados inicializados
-        } else {
-          console.error('Erro ao carregar quarteirões:', error);
-        }
-        return;
-      }
-
-      // Se chegou aqui, tabela existe
+      const data = await quarteiraoService.list();
+      
+      const quarteiroesMapeados = data.map((q: any) => ({
+        id: q.id_quadra?.toString() || q.id?.toString(),
+        numero: q.numero_quadra || q.numero,
+        nome: q.nome_quadra || q.nome || 'Sem nome',
+        localidade: q.nome_localidade || 'N/A',
+        zona: q.nome_zona || 'N/A',
+        status: q.status || 'Ativo',
+        area: 0,
+        data_cadastro: new Date().toISOString(),
+        descricao: '',
+        total_producoes: parseInt(q.total_producoes) || 0,
+      }));
+      
+      setQuarteiroes(quarteiroesMapeados);
       setTabelaExiste(true);
-      setQuarteiroes(data || []);
+      setPaginaAtual(1);
       
     } catch (error) {
-      console.error('Erro geral:', error);
+      console.error('❌ Erro ao carregar quarteirões:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -183,45 +165,40 @@ const CadastroQuarteirao: React.FC = () => {
       return;
     }
 
-    if (editando && quarteiraoEditando) {
-      // Editar quarteirão existente
-      const novosQuarteiroes = quarteiroes.map(q => 
-        q.id === quarteiraoEditando.id 
-          ? { 
-              ...q, 
-              nome: formData.nome,
-              localidade: formData.localidade,
-              zona: formData.zona,
-              area: parseFloat(formData.area),
-              status: formData.status,
-              descricao: formData.descricao
-            }
-          : q
-      );
-      setQuarteiroes(novosQuarteiroes);
-      Alert.alert('✅ Sucesso', 'Quarteirão atualizado com sucesso!');
-    } else {
-      // Adicionar novo quarteirão
-      const novoQuarteirao: Quarteirao = {
-        id: Date.now().toString(),
-        numero: quarteiroes.length + 1,
-        nome: formData.nome,
-        localidade: formData.localidade,
-        zona: formData.zona,
-        area: parseFloat(formData.area),
-        status: formData.status,
-        descricao: formData.descricao,
-        data_cadastro: new Date().toISOString(),
-      };
-      setQuarteiroes([...quarteiroes, novoQuarteirao]);
-      Alert.alert('✅ Sucesso', 'Quarteirão cadastrado com sucesso!');
+    try {
+      if (editando && quarteiraoEditando) {
+        // Editar quarteirão existente
+        await quarteiraoService.update(parseInt(quarteiraoEditando.id), {
+          nome: formData.nome,
+          numero: quarteiraoEditando.numero,
+          id_localidade: 1, // TODO: pegar do formulário
+          id_zona: 1, // TODO: pegar do formulário
+          status: formData.status,
+        });
+        Alert.alert('✅ Sucesso', 'Quarteirão atualizado com sucesso!');
+      } else {
+        // Adicionar novo quarteirão
+        await quarteiraoService.create({
+          nome: formData.nome,
+          numero: quarteiroes.length + 1,
+          id_localidade: 1, // TODO: pegar do formulário
+          id_zona: 1, // TODO: pegar do formulário
+          status: formData.status,
+        });
+        Alert.alert('✅ Sucesso', 'Quarteirão cadastrado com sucesso!');
+      }
+      
+      // Recarregar lista
+      await carregarQuarteiroes();
+      setModalVisible(false);
+    } catch (error) {
+      console.error('Erro ao salvar quarteirão:', error);
+      Alert.alert('Erro', 'Não foi possível salvar o quarteirão');
     }
-
-    setModalVisible(false);
   };
 
   // Função para excluir quarteirão
-  const excluirQuarteirao = (id: string) => {
+  const excluirQuarteirao = async (id: string) => {
     Alert.alert(
       '⚠️ Confirmar exclusão',
       'Tem certeza que deseja excluir este quarteirão?',
@@ -230,10 +207,15 @@ const CadastroQuarteirao: React.FC = () => {
         {
           text: '🗑️ Excluir',
           style: 'destructive',
-          onPress: () => {
-            const novosQuarteiroes = quarteiroes.filter(q => q.id !== id);
-            setQuarteiroes(novosQuarteiroes);
-            Alert.alert('✅ Sucesso', 'Quarteirão excluído com sucesso!');
+          onPress: async () => {
+            try {
+              await quarteiraoService.delete(id);
+              const novosQuarteiroes = quarteiroes.filter(q => q.id !== id);
+              setQuarteiroes(novosQuarteiroes);
+              Alert.alert('✅ Sucesso', 'Quarteirão excluído com sucesso!');
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível excluir o quarteirão');
+            }
           },
         },
       ]
@@ -260,79 +242,64 @@ const CadastroQuarteirao: React.FC = () => {
   };
 
   // Renderizar cada quarteirão
-  const renderQuarteiraoItem = (quarteirao: Quarteirao) => (
-    <View key={quarteirao.id} style={styles.quarteiraoCard}>
-      {/* Cabeçalho do card */}
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderLeft}>
-          <View style={styles.numeroContainer}>
-            <Text style={styles.numeroText}>#{quarteirao.numero}</Text>
-          </View>
-          <View style={styles.nomeContainer}>
-            <Text style={styles.nomeText}>📍 {quarteirao.nome}</Text>
-            {quarteirao.descricao && (
-              <Text style={styles.descricaoText}>{quarteirao.descricao}</Text>
-            )}
-          </View>
-        </View>
-        
-        <View style={[
-          styles.statusContainer,
-          { backgroundColor: quarteirao.status === 'Ativo' ? '#4CAF50' : '#FF9800' }
-        ]}>
-          <Text style={styles.statusText}>
-            {quarteirao.status === 'Ativo' ? '✅ Ativo' : '⏸️ Inativo'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Detalhes do quarteirão */}
-      <View style={styles.cardDetails}>
-        <View style={styles.detailRow}>
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>🏠 Localidade:</Text>
-            <Text style={styles.detailValue}>{quarteirao.localidade}</Text>
+  const renderQuarteiraoItem = (quarteirao: Quarteirao) => {
+    return (
+      <View style={styles.quarteiraoCard}>
+        {/* Cabeçalho do card */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <View style={styles.numeroContainer}>
+              <Text style={styles.numeroText}>#{quarteirao.numero}</Text>
+            </View>
+            <View style={styles.nomeContainer}>
+              <Text style={styles.nomeText}>📍 {quarteirao.nome}</Text>
+            </View>
           </View>
           
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>🧭 Zona:</Text>
-            <Text style={styles.detailValue}>{quarteirao.zona}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.detailRow}>
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>📏 Área:</Text>
-            <Text style={styles.detailValue}>{quarteirao.area} hectares</Text>
-          </View>
-          
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>📅 Cadastro:</Text>
-            <Text style={styles.detailValue}>
-              {new Date(quarteirao.data_cadastro).toLocaleDateString('pt-BR')}
+          <View style={[
+            styles.statusContainer,
+            { backgroundColor: quarteirao.status === 'Ativo' ? '#4CAF50' : '#FF9800' }
+          ]}>
+            <Text style={styles.statusText}>
+              {quarteirao.status === 'Ativo' ? '✅ Ativo' : '⏸️ Inativo'}
             </Text>
           </View>
         </View>
-      </View>
 
-      {/* Ações */}
-      <View style={styles.cardActions}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.editButton]}
-          onPress={() => abrirModalEdicao(quarteirao)}
-        >
-          <Text style={styles.actionButtonText}>✏️ Editar</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => excluirQuarteirao(quarteirao.id)}
-        >
-          <Text style={styles.actionButtonText}>🗑️ Excluir</Text>
-        </TouchableOpacity>
+        {/* Detalhes do quarteirão */}
+        <View style={styles.cardDetails}>
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>🏠 Localidade:</Text>
+              <Text style={styles.detailValue}>{quarteirao.localidade}</Text>
+            </View>
+            
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>🧭 Zona:</Text>
+              <Text style={styles.detailValue}>{quarteirao.zona}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Ações */}
+        <View style={styles.cardActions}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.editButton]}
+            onPress={() => abrirModalEdicao(quarteirao)}
+          >
+            <Text style={styles.actionButtonText}>✏️ Editar</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={() => excluirQuarteirao(quarteirao.id)}
+          >
+            <Text style={styles.actionButtonText}>🗑️ Excluir</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   // Renderizar controles de paginação
   const renderPaginacao = () => {
@@ -435,32 +402,26 @@ const CadastroQuarteirao: React.FC = () => {
     }
 
     return (
-      <>
+      <View style={{ flex: 1 }}>
         <ScrollView 
           style={styles.scrollContainer}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {/* Aviso se usando dados locais */}
-          {!tabelaExiste && (
-            <View style={styles.localDataWarning}>
-              <Text style={styles.warningIcon}>📱</Text>
-              <Text style={styles.warningText}>
-                Usando dados locais (tabela não criada ainda)
-              </Text>
-            </View>
-          )}
-
           {/* Lista de quarteirões */}
           <View style={styles.quarteiroesList}>
-            {quarteiroesPagina.map(renderQuarteiraoItem)}
+            {quarteiroesPagina.map((q) => (
+              <View key={`quarteirao-${q.id}`}>
+                {renderQuarteiraoItem(q)}
+              </View>
+            ))}
           </View>
         </ScrollView>
 
         {/* Controles de paginação */}
         {renderPaginacao()}
-      </>
+      </View>
     );
   };
 
@@ -521,7 +482,7 @@ const CadastroQuarteirao: React.FC = () => {
             <View style={styles.itemsPerPageButtons}>
               {opcoesItensPorPagina.map((quantidade) => (
                 <TouchableOpacity
-                  key={quantidade}
+                  key={`items-${quantidade}`}
                   style={[
                     styles.itemsPerPageButton,
                     itensPorPagina === quantidade && styles.itemsPerPageButtonActive
@@ -663,6 +624,7 @@ const CadastroQuarteirao: React.FC = () => {
                 <Text style={styles.label}>📊 Status</Text>
                 <View style={styles.radioGroup}>
                   <TouchableOpacity
+                    key="ativo"
                     style={styles.radioButton}
                     onPress={() => setFormData({ ...formData, status: 'Ativo' })}
                   >
@@ -673,6 +635,7 @@ const CadastroQuarteirao: React.FC = () => {
                   </TouchableOpacity>
                   
                   <TouchableOpacity
+                    key="inativo"
                     style={styles.radioButton}
                     onPress={() => setFormData({ ...formData, status: 'Inativo' })}
                   >
