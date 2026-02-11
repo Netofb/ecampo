@@ -110,9 +110,7 @@ npm run ios
 
 ## 🔑 Credenciais de Teste
 
-**Usuário Suzana** (36 quarteirões cadastrados)
-- CPF: `79481396487` ou `794.813.964-87`
-- Senha: `123456`
+
 
 **Usuário de Teste**
 - CPF: `12345678909`
