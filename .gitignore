@@ -104,4 +104,80 @@ out/
 
 # Scripts temporários
 backend/check-*.js
+backend/check-*.ts
 backend/migrate-*.js
+backend/migrate-*.ts
+backend/reset-*.js
+backend/reset-*.ts
+backend/test-*.js
+backend/test-*.ts
+backend/fix-*.js
+backend/fix-*.ts
+
+# Package locks (manter apenas um)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+backend/package-lock.json
+backend/yarn.lock
+backend/pnpm-lock.yaml
+
+# Arquivos de sistema Windows
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Arquivos de backup
+*.bak
+*.backup
+*.old
+*~
+
+# Certificados e chaves
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# Uploads e assets temporários
+uploads/
+temp/
+tmp/
+
+# Documentação gerada
+docs/generated/
+
+# Testes e coverage
+__tests__/coverage/
+test-results/
+*.test.js.snap
+
+# React Native específico
+.expo-shared/
+*.jsbundle
+*.bundle
+
+# Gradle (Android)
+.gradle/
+local.properties
+*.iml
+.externalNativeBuild
+.cxx/
+
+# Xcode (iOS)
+xcuserdata/
+*.xcworkspace
+!default.xcworkspace
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output

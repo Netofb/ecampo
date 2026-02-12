@@ -92,10 +92,14 @@ const AppNavigator: React.FC = () => {
       try {
         const token = await AsyncStorage.getItem('authToken');
         const userId = await AsyncStorage.getItem('userId');
+        const userIbge = await AsyncStorage.getItem('userIbge');
         
         if (token && userId) {
           authService.setToken(token);
           authService.setUserId(userId);
+          if (userIbge) {
+            authService.setUserIbge(userIbge);
+          }
           setIsLoggedIn(true);
         } else {
           setIsLoggedIn(false);

@@ -55,7 +55,9 @@ interface MenuItem {
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
+  const [userIbge, setUserIbge] = useState<string>('');
+  const [userPhoto, setUserPhoto] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
 
@@ -169,10 +171,15 @@ const HomeScreen: React.FC = () => {
 
   const loadUserData = async () => {
     try {
-      const userCPF = await AsyncStorage.getItem('userCPF');
-      if (userCPF) {
-        setUserEmail(userCPF);
-      }
+      const name = await AsyncStorage.getItem('userName');
+      const ibge = await AsyncStorage.getItem('userIbge');
+      const photo = await AsyncStorage.getItem('userPhoto');
+      
+      console.log('Dados do usuário:', { name, ibge, photo });
+      
+      if (name) setUserName(name);
+      if (ibge) setUserIbge(ibge);
+      if (photo) setUserPhoto(photo);
     } catch (error) {
       console.error('Erro ao carregar dados do usuário:', error);
     } finally {
@@ -249,12 +256,21 @@ const HomeScreen: React.FC = () => {
           </View>
 
           {/* Perfil (Direita) */}
-          <TouchableOpacity style={styles.profileButton} onPress={handleLogout}>
-            <Text style={styles.profileIcon}>👤</Text>
-            <Text style={styles.profileText} numberOfLines={1}>
-              {userEmail || 'Usuário'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.profileButton}>
+            <View style={styles.profileImagePlaceholder}>
+              <Text style={styles.profileInitials}>
+                {userName ? userName.charAt(0) : 'U'}
+              </Text>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>
+                {userName || 'Usuário'}
+              </Text>
+              <Text style={styles.profileIbge}>
+                {userIbge || 'N/A'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Conteúdo Principal */}
@@ -420,17 +436,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
-    minWidth: 100,
-    maxWidth: 150,
   },
-  profileIcon: {
-    fontSize: 20,
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 8,
+    backgroundColor: '#E5E5EA',
+  },
+  profileImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 8,
   },
-  profileText: {
+  profileInitials: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  profileInfo: {
+    justifyContent: 'center',
+  },
+  profileName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  profileIbge: {
     fontSize: 12,
     color: '#666',
-    flex: 1,
   },
   mainContainer: {
     flex: 1,

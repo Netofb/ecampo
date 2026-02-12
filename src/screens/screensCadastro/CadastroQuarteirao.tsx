@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { quarteiraoService } from '../../services/api';
+import { quarteiraoService, localidadeService, zonaService } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -49,6 +49,7 @@ const CadastroQuarteirao: React.FC = () => {
   
   // Dados do formulário
   const [formData, setFormData] = useState({
+    numero: '',
     nome: '',
     localidade: '',
     zona: '',
@@ -58,6 +59,8 @@ const CadastroQuarteirao: React.FC = () => {
   });
 
   const [quarteiroes, setQuarteiroes] = useState<Quarteirao[]>([]);
+  const [localidades, setLocalidades] = useState<any[]>([]);
+  const [zonas, setZonas] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [tabelaExiste, setTabelaExiste] = useState(true);
@@ -117,9 +120,24 @@ const CadastroQuarteirao: React.FC = () => {
     }
   };
 
+  // Carregar localidades e zonas
+  const carregarLocalidadesEZonas = async () => {
+    try {
+      const [localidadesData, zonasData] = await Promise.all([
+        localidadeService.list(),
+        zonaService.list()
+      ]);
+      setLocalidades(localidadesData);
+      setZonas(zonasData);
+    } catch (error) {
+      console.error('Erro ao carregar localidades/zonas:', error);
+    }
+  };
+
   // Carregar dados inicial
   useEffect(() => {
     carregarQuarteiroes();
+    carregarLocalidadesEZonas();
   }, []);
 
   // Pull to refresh
@@ -133,9 +151,10 @@ const CadastroQuarteirao: React.FC = () => {
     setEditando(false);
     setQuarteiraoEditando(null);
     setFormData({
+      numero: '',
       nome: '',
-      localidade: '',
-      zona: '',
+      localidade: localidades.length > 0 ? localidades[0].nome_localidade : '',
+      zona: zonas.length > 0 ? zonas[0].nome_zona : '',
       area: '',
       status: 'Ativo',
       descricao: '',
@@ -148,6 +167,7 @@ const CadastroQuarteirao: React.FC = () => {
     setEditando(true);
     setQuarteiraoEditando(quarteirao);
     setFormData({
+      numero: quarteirao.numero.toString(),
       nome: quarteirao.nome,
       localidade: quarteirao.localidade,
       zona: quarteirao.zona,
@@ -160,8 +180,8 @@ const CadastroQuarteirao: React.FC = () => {
 
   // Função para salvar quarteirão
   const salvarQuarteirao = async () => {
-    if (!formData.nome || !formData.localidade || !formData.zona || !formData.area) {
-      Alert.alert('⚠️ Atenção', 'Preencha todos os campos obrigatórios');
+    if (!formData.numero || !formData.nome || !formData.localidade || !formData.zona) {
+      Alert.alert('⚠️ Atenção', 'Preencha todos os campos obrigatórios (número, nome, localidade e zona)');
       return;
     }
 
@@ -170,9 +190,9 @@ const CadastroQuarteirao: React.FC = () => {
         // Editar quarteirão existente
         await quarteiraoService.update(parseInt(quarteiraoEditando.id), {
           nome: formData.nome,
-          numero: quarteiraoEditando.numero,
-          id_localidade: 1, // TODO: pegar do formulário
-          id_zona: 1, // TODO: pegar do formulário
+          numero: parseInt(formData.numero),
+          localidade_nome: formData.localidade,
+          zona_nome: formData.zona,
           status: formData.status,
         });
         Alert.alert('✅ Sucesso', 'Quarteirão atualizado com sucesso!');
@@ -180,9 +200,9 @@ const CadastroQuarteirao: React.FC = () => {
         // Adicionar novo quarteirão
         await quarteiraoService.create({
           nome: formData.nome,
-          numero: quarteiroes.length + 1,
-          id_localidade: 1, // TODO: pegar do formulário
-          id_zona: 1, // TODO: pegar do formulário
+          numero: parseInt(formData.numero),
+          localidade_nome: formData.localidade,
+          zona_nome: formData.zona,
           status: formData.status,
         });
         Alert.alert('✅ Sucesso', 'Quarteirão cadastrado com sucesso!');
@@ -191,9 +211,10 @@ const CadastroQuarteirao: React.FC = () => {
       // Recarregar lista
       await carregarQuarteiroes();
       setModalVisible(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar quarteirão:', error);
-      Alert.alert('Erro', 'Não foi possível salvar o quarteirão');
+      const mensagem = error.response?.data?.error || 'Não foi possível salvar o quarteirão. Verifique se a localidade e zona existem.';
+      Alert.alert('Erro', mensagem);
     }
   };
 
@@ -568,37 +589,79 @@ const CadastroQuarteirao: React.FC = () => {
 
             <ScrollView style={styles.modalForm}>
               <View style={styles.inputGroup}>
+                <Text style={styles.label}>🔢 Número do Quarteirão *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ex: 1"
+                  value={formData.numero}
+                  onChangeText={(text) => setFormData({ ...formData, numero: text })}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
                 <Text style={styles.label}>📍 Nome do Quarteirão *</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: Quarteirão Norte"
                   value={formData.nome}
-                  onChangeText={(text) => setFormData({ ...formData, nome: text })}
+                  onChangeText={(text) => setFormData({ ...formData, nome: text.toUpperCase() })}
+                  autoCapitalize="characters"
                 />
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>🏠 Localidade *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ex: Fazenda São João"
-                  value={formData.localidade}
-                  onChangeText={(text) => setFormData({ ...formData, localidade: text })}
-                />
+                <View style={styles.pickerContainer}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {localidades.map((loc) => (
+                      <TouchableOpacity
+                        key={loc.id_localidade}
+                        style={[
+                          styles.pickerOption,
+                          formData.localidade === loc.nome_localidade && styles.pickerOptionSelected
+                        ]}
+                        onPress={() => setFormData({ ...formData, localidade: loc.nome_localidade })}
+                      >
+                        <Text style={[
+                          styles.pickerOptionText,
+                          formData.localidade === loc.nome_localidade && styles.pickerOptionTextSelected
+                        ]}>
+                          {formData.localidade === loc.nome_localidade ? '✓ ' : ''}{loc.nome_localidade}{loc.co_localidade ? ` - ${loc.co_localidade}` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>🧭 Zona *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ex: Zona Norte"
-                  value={formData.zona}
-                  onChangeText={(text) => setFormData({ ...formData, zona: text })}
-                />
+                <View style={styles.pickerContainer}>
+                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
+                    {zonas.map((zona) => (
+                      <TouchableOpacity
+                        key={zona.id_zona}
+                        style={[
+                          styles.pickerOption,
+                          formData.zona === zona.nome_zona && styles.pickerOptionSelected
+                        ]}
+                        onPress={() => setFormData({ ...formData, zona: zona.nome_zona })}
+                      >
+                        <Text style={[
+                          styles.pickerOptionText,
+                          formData.zona === zona.nome_zona && styles.pickerOptionTextSelected
+                        ]}>
+                          {formData.zona === zona.nome_zona ? '✓ ' : ''}{zona.nome_zona}{zona.co_zona ? ` - ${zona.co_zona}` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>📏 Área (hectares) *</Text>
+                <Text style={styles.label}>📏 Área (hectares) (opcional)</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: 5.2"
@@ -1173,6 +1236,12 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
   },
+  helperText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#E5E5EA',
@@ -1229,6 +1298,33 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // Picker styles
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 8,
+    backgroundColor: '#FAFAFA',
+    maxHeight: 150,
+  },
+  pickerScroll: {
+    maxHeight: 150,
+  },
+  pickerOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  pickerOptionSelected: {
+    backgroundColor: '#E8F5E9',
+  },
+  pickerOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  pickerOptionTextSelected: {
+    color: '#4CAF50',
     fontWeight: '600',
   },
 });

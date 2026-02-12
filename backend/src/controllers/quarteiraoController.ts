@@ -35,20 +35,56 @@ export const listQuarteiroes = async (req: any, res: Response) => {
 
 export const createQuarteirao = async (req: any, res: Response) => {
   try {
-    const { numero, nome, id_localidade, id_zona, status, poligono_geojson, latitude, longitude, cor_poligono } = req.body;
+    const { numero, nome, id_localidade, id_zona, localidade_nome, zona_nome, status, poligono_geojson, latitude, longitude, cor_poligono } = req.body;
     const userId = req.userId;
 
     if (!numero || !nome) {
-      return res.status(400).json({ error: 'Numero and nome are required' });
+      return res.status(400).json({ error: 'Numero e nome são obrigatórios' });
     }
+
+    let localidadeId = id_localidade;
+    let zonaId = id_zona;
+
+    // Se recebeu nome da localidade, buscar o ID
+    if (localidade_nome && !id_localidade) {
+      const localidade = await db('tb_localidades')
+        .whereRaw('LOWER(nome_localidade) = LOWER(?)', [localidade_nome])
+        .where('id_usuario', userId)
+        .first();
+      
+      if (localidade) {
+        localidadeId = localidade.id_localidade;
+      }
+    }
+
+    // Se recebeu nome da zona, buscar o ID
+    if (zona_nome && !id_zona) {
+      const zona = await db('tb_zonas')
+        .whereRaw('LOWER(nome_zona) = LOWER(?)', [zona_nome])
+        .where('id_usuario', userId)
+        .first();
+      
+      if (zona) {
+        zonaId = zona.id_zona;
+      }
+    }
+
+    if (!localidadeId || !zonaId) {
+      return res.status(400).json({ error: 'Localidade ou zona não encontrada' });
+    }
+
+    // Buscar IBGE do usuário
+    const user = await db('usuarios').where('id_usuario', userId).first();
+    const ibgeUsuario = user?.ibge || null;
 
     const [result] = await db('tb_quarteiroes').insert({
       numero_quadra: numero,
       nome_quadra: nome,
-      id_localidade,
-      id_zona,
+      id_localidade: localidadeId,
+      id_zona: zonaId,
       id_usuario: userId,
       status: status || 'Ativo',
+      ibge_quadra: ibgeUsuario,
       poligono_geojson,
       latitude_quadra: latitude,
       longitude_quadra: longitude,
@@ -69,6 +105,7 @@ export const updateQuarteirao = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const { numero, nome, id_localidade, id_zona, status, poligono_geojson, latitude, longitude, cor_poligono } = req.body;
+    const userId = req.userId;
 
     const quarteirao = await db('tb_quarteiroes')
       .where('id_quadra', id)
@@ -78,12 +115,17 @@ export const updateQuarteirao = async (req: any, res: Response) => {
       return res.status(404).json({ error: 'Quarteirao not found' });
     }
 
+    // Buscar IBGE do usuário (mantém o IBGE original ou atualiza se necessário)
+    const user = await db('usuarios').where('id_usuario', userId).first();
+    const ibgeUsuario = user?.ibge || quarteirao.ibge_quadra;
+
     await db('tb_quarteiroes').where('id_quadra', id).update({
       numero_quadra: numero,
       nome_quadra: nome,
       id_localidade,
       id_zona,
       status,
+      ibge_quadra: ibgeUsuario,
       poligono_geojson,
       latitude_quadra: latitude,
       longitude_quadra: longitude,
@@ -121,8 +163,17 @@ export const deleteQuarteirao = async (req: any, res: Response) => {
 // ===== FACES =====
 export const listFaces = async (req: any, res: Response) => {
   try {
-    const faces = await db('tb_faces')
-      .orderBy('id', 'asc');
+    const userId = req.userId;
+    
+    const faces = await db('tb_faces as f')
+      .leftJoin('tb_quarteiroes as q', 'f.id_quarteirao', 'q.id_quadra')
+      .where('f.id_usuario', userId)
+      .select(
+        'f.*',
+        'q.nome_quadra',
+        'q.numero_quadra'
+      )
+      .orderBy('f.id_face', 'asc');
 
     res.json(faces);
   } catch (error) {
@@ -133,26 +184,74 @@ export const listFaces = async (req: any, res: Response) => {
 
 export const createFace = async (req: any, res: Response) => {
   try {
-    const { quarteirao_id, numero, lado_id, descricao } = req.body;
+    const { numero_face, id_quarteirao, status } = req.body;
+    const userId = req.userId;
 
-    if (!quarteirao_id || !numero) {
-      return res.status(400).json({ error: 'Quarteirao ID and numero are required' });
+    if (!numero_face || !id_quarteirao) {
+      return res.status(400).json({ error: 'Numero da face e quarteirão são obrigatórios' });
     }
 
-    const [id] = await db('tb_faces').insert({
-      quarteirao_id,
-      numero,
-      lado_id,
-      descricao,
-      created_at: new Date(),
-    });
+    const user = await db('usuarios').where('id_usuario', userId).first();
+    const ibgeUsuario = user?.ibge || null;
+
+    const [result] = await db('tb_faces').insert({
+      numero_face,
+      id_quarteirao,
+      id_usuario: userId,
+      status: status || 'Ativo',
+      ibge_face: ibgeUsuario,
+    }).returning('id_face');
 
     res.status(201).json({
-      id,
+      id: result,
       message: 'Face created successfully',
     });
   } catch (error) {
     console.error('Create face error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const updateFace = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { numero_face, id_quarteirao, status } = req.body;
+    const userId = req.userId;
+
+    const face = await db('tb_faces').where('id_face', id).first();
+
+    if (!face) {
+      return res.status(404).json({ error: 'Face not found' });
+    }
+
+    await db('tb_faces').where('id_face', id).update({
+      numero_face,
+      id_quarteirao,
+      status,
+    });
+
+    res.json({ message: 'Face updated successfully' });
+  } catch (error) {
+    console.error('Update face error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const deleteFace = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const face = await db('tb_faces').where('id_face', id).first();
+
+    if (!face) {
+      return res.status(404).json({ error: 'Face not found' });
+    }
+
+    await db('tb_faces').where('id_face', id).delete();
+
+    res.json({ message: 'Face deleted successfully' });
+  } catch (error) {
+    console.error('Delete face error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -201,8 +300,10 @@ export const createImovel = async (req: any, res: Response) => {
 // ===== LOCALIDADES =====
 export const listLocalidades = async (req: any, res: Response) => {
   try {
+    const userId = req.userId;
     const localidades = await db('tb_localidades')
-      .orderBy('id', 'asc');
+      .where('id_usuario', userId)
+      .orderBy('nome_localidade', 'asc');
 
     res.json(localidades);
   } catch (error) {
@@ -238,8 +339,10 @@ export const createLocalidade = async (req: any, res: Response) => {
 // ===== ZONAS =====
 export const listZonas = async (req: any, res: Response) => {
   try {
+    const userId = req.userId;
     const zonas = await db('tb_zonas')
-      .orderBy('id', 'asc');
+      .where('id_usuario', userId)
+      .orderBy('nome_zona', 'asc');
 
     res.json(zonas);
   } catch (error) {

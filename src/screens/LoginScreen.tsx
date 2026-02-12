@@ -63,9 +63,14 @@ const LoginScreen: React.FC = () => {
     try {
       const response = await authService.login(cleanedCPF, password);
 
+      const firstName = response.user.name ? response.user.name.split(' ')[0] : '';
+
       await AsyncStorage.setItem('authToken', response.token);
       await AsyncStorage.setItem('userId', String(response.user.id));
       await AsyncStorage.setItem('userCPF', cleanedCPF);
+      await AsyncStorage.setItem('userIbge', response.user.ibge || '');
+      await AsyncStorage.setItem('userName', firstName);
+      await AsyncStorage.setItem('userPhoto', response.user.link_foto || '');
       
       authService.setToken(response.token);
       authService.setUserId(String(response.user.id));

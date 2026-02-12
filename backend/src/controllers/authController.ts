@@ -75,6 +75,8 @@ export const login = async (req: Request, res: Response) => {
         id: user.id_usuario,
         cpf: user.cpf_usuario,
         name: user.nome_usuario,
+        ibge: user.ibge,
+        link_foto: user.link_foto,
       },
       message: 'Login successful',
     });

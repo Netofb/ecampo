@@ -4,8 +4,10 @@ import db from '../database';
 // ===== LOCALIDADES =====
 export const listLocalidades = async (req: any, res: Response) => {
   try {
+    const userId = req.userId;
     const localidades = await db('tb_localidades')
-      .orderBy('id', 'asc');
+      .where('id_usuario', userId)
+      .orderBy('nome_localidade', 'asc');
 
     res.json(localidades);
   } catch (error) {
@@ -84,8 +86,10 @@ export const deleteLocalidade = async (req: any, res: Response) => {
 // ===== ZONAS =====
 export const listZonas = async (req: any, res: Response) => {
   try {
+    const userId = req.userId;
     const zonas = await db('tb_zonas')
-      .orderBy('id', 'asc');
+      .where('id_usuario', userId)
+      .orderBy('nome_zona', 'asc');
 
     res.json(zonas);
   } catch (error) {

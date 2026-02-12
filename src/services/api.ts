@@ -9,6 +9,7 @@ const API_BASE_URL = 'http://10.0.2.2:3333/api'; // Android Emulator
 class AuthService {
   private token: string | null = null;
   private userId: string | null = null;
+  private userIbge: string | null = null;
 
   setToken(token: string) {
     this.token = token;
@@ -24,6 +25,14 @@ class AuthService {
 
   getUserId(): string | null {
     return this.userId;
+  }
+
+  setUserIbge(ibge: string) {
+    this.userIbge = ibge;
+  }
+
+  getUserIbge(): string | null {
+    return this.userIbge;
   }
 
   getAuthHeaders() {
@@ -98,6 +107,7 @@ class AuthService {
   async logout() {
     this.token = null;
     this.userId = null;
+    this.userIbge = null;
   }
 
   isAuthenticated(): boolean {
@@ -231,6 +241,43 @@ class FaceService {
       throw error;
     }
   }
+
+  async update(id: number, data: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faces/${id}`, {
+        method: 'PUT',
+        headers: this.authService.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update face');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async delete(id: number) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faces/${id}`, {
+        method: 'DELETE',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete face');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 class ImovelService {
@@ -321,12 +368,38 @@ class LocalidadeService {
   }
 }
 
+class ZonaService {
+  private authService: AuthService;
+
+  constructor(authService: AuthService) {
+    this.authService = authService;
+  }
+
+  async list() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/localidades/zonas`, {
+        method: 'GET',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch zonas');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
 // Initialize services
 const authService = new AuthService();
 const quarteiraoService = new QuarteiraoService(authService);
 const faceService = new FaceService(authService);
 const imovelService = new ImovelService(authService);
 const localidadeService = new LocalidadeService(authService);
+const zonaService = new ZonaService(authService);
 
 export {
   authService,
@@ -334,4 +407,5 @@ export {
   faceService,
   imovelService,
   localidadeService,
+  zonaService,
 };
