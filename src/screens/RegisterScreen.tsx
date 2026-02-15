@@ -1,4 +1,3 @@
-// src/screens/RegisterScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -10,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -20,8 +20,10 @@ import {
   validateConfirmPassword,
 } from '../utils/validation';
 import { authService } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const RegisterScreen: React.FC = () => {
+  const { colors, isDark } = useTheme();
   const navigation = useNavigation();
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
@@ -105,14 +107,16 @@ const RegisterScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Criar Conta</Text>
-          <Text style={styles.subtitle}>Informe seu CPF e crie uma senha</Text>
+    <>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <KeyboardAvoidingView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <View style={styles.content}>
+            <Text style={[styles.title, { color: colors.text }]}>Criar Conta</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Informe seu CPF e crie uma senha</Text>
 
           <Input
             label="CPF"
@@ -156,13 +160,13 @@ const RegisterScreen: React.FC = () => {
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Já tem uma conta? </Text>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>Já tem uma conta? </Text>
             <TouchableOpacity onPress={navigateToLogin}>
               <Text style={styles.footerLink}>Faça login</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.terms}>
+          <Text style={[styles.terms, { color: colors.textSecondary }]}>
             Ao cadastrar, você concorda com nossos{' '}
             <Text style={styles.termsLink}>Termos de Uso</Text> e{' '}
             <Text style={styles.termsLink}>Política de Privacidade</Text>.
@@ -170,13 +174,13 @@ const RegisterScreen: React.FC = () => {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -189,13 +193,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 40,
     textAlign: 'center',
   },
@@ -215,7 +217,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   buttonDisabled: {
-    backgroundColor: '#999',
+    opacity: 0.5,
   },
   buttonText: {
     color: '#FFF',
@@ -228,7 +230,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   footerText: {
-    color: '#666',
   },
   footerLink: {
     color: '#007AFF',
@@ -236,7 +237,6 @@ const styles = StyleSheet.create({
   },
   terms: {
     textAlign: 'center',
-    color: '#666',
     fontSize: 12,
     lineHeight: 18,
   },

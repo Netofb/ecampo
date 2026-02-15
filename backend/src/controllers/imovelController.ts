@@ -4,8 +4,19 @@ import db from '../database';
 // ===== IMÓVEIS =====
 export const listImoveis = async (req: any, res: Response) => {
   try {
-    const imoveis = await db('tb_imoveis')
-      .orderBy('id', 'asc');
+    const userId = req.userId;
+    
+    const imoveis = await db('tb_imoveis as i')
+      .leftJoin('tb_faces as f', 'i.id_face', 'f.id_face')
+      .leftJoin('tb_quarteiroes as q', 'f.id_quarteirao', 'q.id_quadra')
+      .where('i.id_usuario', userId)
+      .select(
+        'i.*',
+        'f.numero_face',
+        'q.nome_quadra',
+        'q.numero_quadra'
+      )
+      .orderBy('i.id_imovel', 'asc');
 
     res.json(imoveis);
   } catch (error) {
@@ -16,26 +27,28 @@ export const listImoveis = async (req: any, res: Response) => {
 
 export const createImovel = async (req: any, res: Response) => {
   try {
-    const { face_id, numero, logradouro_id, proprietario, status, descricao } = req.body;
+    const userId = req.userId;
+    const { id_face, seq1, nome_logradouro, numero, seq, tipo, status } = req.body;
 
-    if (!face_id || numero === undefined) {
-      return res.status(400).json({ error: 'Face ID and numero are required' });
+    if (!id_face || !seq1) {
+      return res.status(400).json({ error: 'Face e sequência são obrigatórios' });
     }
 
-    const [id] = await db('tb_imoveis').insert({
-      face_id,
-      numero,
-      logradouro_id,
-      proprietario,
-      status: status || 'Ativo',
-      descricao,
-      created_at: new Date(),
-    });
+    const userIbge = await db('usuarios').where('id_usuario', userId).first();
 
-    res.status(201).json({
-      id,
-      message: 'Imovel created successfully',
-    });
+    const [imovel] = await db('tb_imoveis').insert({
+      id_face,
+      seq1,
+      nome_logradouro,
+      numero,
+      seq,
+      tipo,
+      status: status || 'Ativo',
+      ibge_imovel: userIbge?.ibge,
+      id_usuario: userId,
+    }).returning('*');
+
+    res.status(201).json(imovel);
   } catch (error) {
     console.error('Create imovel error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -45,24 +58,26 @@ export const createImovel = async (req: any, res: Response) => {
 export const updateImovel = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const { numero, logradouro_id, proprietario, status, descricao } = req.body;
+    const userId = req.userId;
+    const { id_face, seq1, nome_logradouro, numero, seq, tipo, status } = req.body;
 
-    const imovel = await db('tb_imoveis').where('id', id).first();
+    const imovel = await db('tb_imoveis').where({ id_imovel: id, id_usuario: userId }).first();
 
     if (!imovel) {
-      return res.status(404).json({ error: 'Imovel not found' });
+      return res.status(404).json({ error: 'Imóvel não encontrado' });
     }
 
-    await db('tb_imoveis').where('id', id).update({
+    await db('tb_imoveis').where('id_imovel', id).update({
+      id_face,
+      seq1,
+      nome_logradouro,
       numero,
-      logradouro_id,
-      proprietario,
+      seq,
+      tipo,
       status,
-      descricao,
-      updated_at: new Date(),
     });
 
-    res.json({ message: 'Imovel updated successfully' });
+    res.json({ message: 'Imóvel atualizado com sucesso' });
   } catch (error) {
     console.error('Update imovel error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -72,16 +87,17 @@ export const updateImovel = async (req: any, res: Response) => {
 export const deleteImovel = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
+    const userId = req.userId;
 
-    const imovel = await db('tb_imoveis').where('id', id).first();
+    const imovel = await db('tb_imoveis').where({ id_imovel: id, id_usuario: userId }).first();
 
     if (!imovel) {
-      return res.status(404).json({ error: 'Imovel not found' });
+      return res.status(404).json({ error: 'Imóvel não encontrado' });
     }
 
-    await db('tb_imoveis').where('id', id).delete();
+    await db('tb_imoveis').where('id_imovel', id).delete();
 
-    res.json({ message: 'Imovel deleted successfully' });
+    res.json({ message: 'Imóvel excluído com sucesso' });
   } catch (error) {
     console.error('Delete imovel error:', error);
     res.status(500).json({ error: 'Internal server error' });

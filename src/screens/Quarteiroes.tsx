@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, StatusBar } from 'react-native';
 import { quarteiraoService } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Quarteiroes: React.FC = () => {
+  const { colors, isDark } = useTheme();
   const [quarteiroes, setQuarteiroes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,29 +27,32 @@ const Quarteiroes: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={quarteiroes}
         keyExtractor={(item, index) => item?.id_quadra?.toString() || index.toString()}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{item?.nome_quadra || 'Sem nome'}</Text>
-            <Text style={styles.cardSubtitle}>Número: {item?.numero_quadra || 'N/A'}</Text>
-            <Text style={styles.cardStatus}>Status: {item?.status || 'N/A'}</Text>
+          <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>{item?.nome_quadra || 'Sem nome'}</Text>
+            <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>Número: {item?.numero_quadra || 'N/A'}</Text>
+            <Text style={[styles.cardStatus, { color: colors.success }]}>Status: {item?.status || 'N/A'}</Text>
           </View>
         )}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Nenhum quarteirão cadastrado</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nenhum quarteirão cadastrado</Text>
         }
       />
-    </View>
+      </View>
+    </>
   );
 };
 
@@ -55,7 +60,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#F5F5F7',
   },
   loadingContainer: {
     flex: 1,
@@ -63,11 +67,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
-    backgroundColor: '#FFF',
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -80,18 +82,15 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 2,
   },
   cardStatus: {
     fontSize: 14,
-    color: '#4CAF50',
   },
   emptyText: {
     textAlign: 'center',
     marginTop: 50,
     fontSize: 16,
-    color: '#999',
   },
 });
 

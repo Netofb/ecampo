@@ -17,6 +17,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { quarteiraoService, localidadeService, zonaService } from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +37,7 @@ interface Quarteirao {
 
 const CadastroQuarteirao: React.FC = () => {
   const navigation = useNavigation();
+  const { colors, isDark } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
   const [editando, setEditando] = useState(false);
   const [quarteiraoEditando, setQuarteiraoEditando] = useState<Quarteirao | null>(null);
@@ -447,8 +449,8 @@ const CadastroQuarteirao: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
       
       {/* Header */}
       <View style={styles.header}>

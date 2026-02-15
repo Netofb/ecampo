@@ -17,8 +17,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/api';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navgation/AppNavigator';
-// Importe do safe-area-context
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -54,6 +54,7 @@ interface MenuItem {
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { colors, isDark } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [userIbge, setUserIbge] = useState<string>('');
@@ -175,8 +176,6 @@ const HomeScreen: React.FC = () => {
       const ibge = await AsyncStorage.getItem('userIbge');
       const photo = await AsyncStorage.getItem('userPhoto');
       
-      console.log('Dados do usuário:', { name, ibge, photo });
-      
       if (name) setUserName(name);
       if (ibge) setUserIbge(ibge);
       if (photo) setUserPhoto(photo);
@@ -219,32 +218,29 @@ const HomeScreen: React.FC = () => {
     
     // Navega para a tela
     navigation.navigate(screenName as never);
-    
-    // Log para debug (remova depois)
-    console.log(`Navegando para: ${screenName}`);
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Carregando...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Carregando...</Text>
       </View>
     );
   }
 
   return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
         
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           {/* Menu Hamburguer (Esquerda) */}
           <TouchableOpacity
             style={styles.menuButton}
             onPress={() => setMenuOpen(!menuOpen)}
           >
-            <Text style={styles.menuIcon}>{menuOpen ? '✕' : '☰'}</Text>
+            <Text style={[styles.menuIcon, { color: colors.text }]}>{menuOpen ? '✕' : '☰'}</Text>
           </TouchableOpacity>
 
           {/* Logo (Centro) */}
@@ -263,10 +259,10 @@ const HomeScreen: React.FC = () => {
               </Text>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>
+              <Text style={[styles.profileName, { color: colors.text }]}>
                 {userName || 'Usuário'}
               </Text>
-              <Text style={styles.profileIbge}>
+              <Text style={[styles.profileIbge, { color: colors.textSecondary }]}>
                 {userIbge || 'N/A'}
               </Text>
             </View>
@@ -277,16 +273,16 @@ const HomeScreen: React.FC = () => {
         <View style={styles.mainContainer}>
           {/* Menu Lateral (condicional) */}
           {menuOpen && (
-            <View style={styles.sideMenu}>
-              <View style={styles.menuHeader}>
-                <Text style={styles.menuTitle}>Menu</Text>
+            <View style={[styles.sideMenu, { backgroundColor: colors.card, borderRightColor: colors.border }]}>
+              <View style={[styles.menuHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.menuTitle, { color: colors.text }]}>Menu</Text>
               </View>
               <ScrollView style={styles.menuItems}>
                 {menuItems.map((item) => (
                   <View key={item.id}>
                     {/* Item principal do menu */}
                     <TouchableOpacity
-                      style={styles.menuItem}
+                      style={[styles.menuItem, { borderBottomColor: colors.border }]}
                       onPress={() => {
                         if (item.hasDropdown) {
                           toggleDropdown(item.id);
@@ -297,10 +293,10 @@ const HomeScreen: React.FC = () => {
                     >
                       <View style={styles.menuItemLeft}>
                         <Text style={styles.menuItemIcon}>{item.icon}</Text>
-                        <Text style={styles.menuItemText}>{item.title}</Text>
+                        <Text style={[styles.menuItemText, { color: colors.text }]}>{item.title}</Text>
                       </View>
                       {item.hasDropdown && (
-                        <Text style={styles.dropdownIcon}>
+                        <Text style={[styles.dropdownIcon, { color: colors.textSecondary }]}>
                           {activeDropdown === item.id ? '▲' : '▼'}
                         </Text>
                       )}
@@ -308,18 +304,18 @@ const HomeScreen: React.FC = () => {
                     
                     {/* Dropdown com itens navegáveis */}
                     {activeDropdown === item.id && item.hasDropdown && item.dropdownItems && (
-                      <View style={styles.dropdownContent}>
+                      <View style={[styles.dropdownContent, { backgroundColor: isDark ? colors.background : '#F9F9F9' }]}>
                         {item.dropdownItems.map((dropdownItem) => (
                           <TouchableOpacity 
                             key={dropdownItem.id}
-                            style={styles.dropdownItem}
+                            style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
                             onPress={() => handleNavigation(dropdownItem.screen)}
                           >
                             {dropdownItem.icon && (
                               <Text style={styles.dropdownItemIcon}>{dropdownItem.icon}</Text>
                             )}
-                            <Text style={styles.dropdownItemText}>{dropdownItem.label}</Text>
-                            <Text style={styles.chevronRight}>{'›'}</Text>
+                            <Text style={[styles.dropdownItemText, { color: colors.textSecondary }]}>{dropdownItem.label}</Text>
+                            <Text style={[styles.chevronRight, { color: colors.textSecondary }]}>{'›'}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -329,7 +325,7 @@ const HomeScreen: React.FC = () => {
               </ScrollView>
               
               {/* Footer do Menu */}
-              <View style={styles.menuFooter}>
+              <View style={[styles.menuFooter, { borderTopColor: colors.border }]}>
               
                 
                 <TouchableOpacity 
@@ -337,7 +333,7 @@ const HomeScreen: React.FC = () => {
                   onPress={handleLogout}
                 >
                   <Text style={styles.logoutIcon}>🚪</Text>
-                  <Text style={styles.logoutMenuText}>Sair</Text>
+                  <Text style={[styles.logoutMenuText, { color: colors.danger }]}>Sair</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -345,21 +341,21 @@ const HomeScreen: React.FC = () => {
 
           {/* Conteúdo Principal (Cards) */}
           <ScrollView style={[styles.content, menuOpen && styles.contentWithMenu]}>
-            <Text style={styles.welcomeTitle}>Bem-vindo de volta!</Text>
-            <Text style={styles.welcomeSubtitle}>Aqui está um resumo das suas métricas</Text>
+            <Text style={[styles.welcomeTitle, { color: colors.text }]}>Bem-vindo de volta!</Text>
+            <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>Aqui está um resumo das suas métricas</Text>
             
             <View style={styles.cardsContainer}>
               {cards.map((card) => (
-                <View key={card.id} style={styles.card}>
+                <View key={card.id} style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
                   <View style={styles.cardHeader}>
                     <View style={[styles.cardIconContainer, { backgroundColor: `${card.color}20` }]}>
                       <Text style={[styles.cardIcon, { color: card.color }]}>{card.icon}</Text>
                     </View>
-                    <Text style={styles.cardTitle}>{card.title}</Text>
+                    <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>{card.title}</Text>
                   </View>
                   
                   <View style={styles.cardContent}>
-                    <Text style={styles.cardValue}>{card.value}</Text>
+                    <Text style={[styles.cardValue, { color: colors.text }]}>{card.value}</Text>
                     {card.description && (
                       <Text style={styles.cardDescription}>{card.description}</Text>
                     )}
@@ -393,18 +389,15 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F5F5F7',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F7',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   header: {
     flexDirection: 'row',
@@ -412,17 +405,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-    
   },
   menuButton: {
     padding: 8,
   },
   menuIcon: {
     fontSize: 24,
-    color: '#333',
   },
   logoContainer: {
     justifyContent: 'center',
@@ -464,12 +453,10 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
     marginBottom: 2,
   },
   profileIbge: {
     fontSize: 12,
-    color: '#666',
   },
   mainContainer: {
     flex: 1,
@@ -477,9 +464,7 @@ const styles = StyleSheet.create({
   },
   sideMenu: {
     width: 280,
-    backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
-    borderRightColor: '#E5E5EA',
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 0 },
@@ -489,12 +474,10 @@ const styles = StyleSheet.create({
   menuHeader: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
   },
   menuTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
   },
   menuItems: {
     flex: 1,
@@ -506,7 +489,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F7',
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -518,14 +500,11 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: '#333',
   },
   dropdownIcon: {
     fontSize: 12,
-    color: '#666',
   },
   dropdownContent: {
-    backgroundColor: '#F9F9F9',
     paddingLeft: 52,
   },
   dropdownItem: {
@@ -534,7 +513,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   dropdownItemIcon: {
     fontSize: 16,
@@ -544,18 +522,15 @@ const styles = StyleSheet.create({
   },
   dropdownItemText: {
     fontSize: 14,
-    color: '#666',
     flex: 1,
   },
   chevronRight: {
     fontSize: 18,
-    color: '#999',
     marginLeft: 8,
   },
   menuFooter: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
   },
   settingsButton: {
     flexDirection: 'row',
@@ -594,7 +569,6 @@ const styles = StyleSheet.create({
   },
   logoutMenuText: {
     fontSize: 14,
-    color: '#FF3B30',
   },
   content: {
     flex: 1,
@@ -606,12 +580,10 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 8,
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 24,
   },
   cardsContainer: {
@@ -621,11 +593,9 @@ const styles = StyleSheet.create({
   },
   card: {
     width: (width - 48) / 2,
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -649,7 +619,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 14,
-    color: '#666',
     flex: 1,
   },
   cardContent: {
@@ -658,7 +627,6 @@ const styles = StyleSheet.create({
   cardValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 4,
   },
   cardDescription: {

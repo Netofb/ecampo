@@ -1,4 +1,3 @@
-// src/screens/LoginScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -10,15 +9,18 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import Input from '../components/Input';
 import { validateCPF, validatePassword } from '../utils/validation';
 import { authService } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { colors, isDark } = useTheme();
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [cpfError, setCpfError] = useState('');
@@ -104,14 +106,16 @@ const LoginScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <KeyboardAvoidingView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.content}>
-          <Text style={styles.title}>Bem-vindo ao eCampo</Text>
-          <Text style={styles.subtitle}>Faça login com seu CPF e senha</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Bem-vindo ao eCampo</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Faça login com seu CPF e senha</Text>
 
           <Input
             label="CPF"
@@ -155,13 +159,13 @@ const LoginScreen: React.FC = () => {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -174,13 +178,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 15,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 100,
     textAlign: 'center',
   },
@@ -200,7 +202,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   buttonDisabled: {
-    backgroundColor: '#999',
+    opacity: 0.5,
   },
   buttonText: {
     color: '#FFF',

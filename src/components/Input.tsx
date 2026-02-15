@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface InputProps {
   label: string;
@@ -28,6 +29,7 @@ const Input: React.FC<InputProps> = ({
   autoComplete = 'off',
   lowercase = false, // Valor padrão: false
 }) => {
+  const { colors } = useTheme();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   
   const handleChangeText = (text: string) => {
@@ -40,21 +42,28 @@ const Input: React.FC<InputProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
       <View style={styles.inputWrapper}>
         <TextInput
-          style={[styles.input, error ? styles.inputError : null]}
+          style={[
+            styles.input,
+            { 
+              backgroundColor: colors.input, 
+              borderColor: error ? colors.danger : colors.border,
+              color: colors.text 
+            }
+          ]}
           value={value}
           onChangeText={handleChangeText}
           placeholder={placeholder}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           keyboardType={keyboardType}
-          autoCapitalize={lowercase ? 'none' : autoCapitalize} // Força 'none' se lowercase
+          autoCapitalize={lowercase ? 'none' : autoCapitalize}
           maxLength={maxLength}
           autoComplete={autoComplete}
-          placeholderTextColor="#999"
-          autoCorrect={false} // Recomendado para campos lowercase
-          spellCheck={false} // Recomendado para campos lowercase
+          placeholderTextColor={colors.placeholder}
+          autoCorrect={false}
+          spellCheck={false}
         />
         {shouldShowPasswordToggle && (
           <TouchableOpacity
@@ -66,7 +75,7 @@ const Input: React.FC<InputProps> = ({
           </TouchableOpacity>
         )}
       </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
     </View>
   );
 };
@@ -79,23 +88,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
   },
   inputWrapper: {
     position: 'relative',
   },
   input: {
-    backgroundColor: '#f5f5f5',
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#333',
-  },
-  inputError: {
-    borderColor: '#ff3b30',
   },
   eyeButton: {
     position: 'absolute',
@@ -110,7 +112,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   errorText: {
-    color: '#ff3b30',
     fontSize: 14,
     marginTop: 5,
   },

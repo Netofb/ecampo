@@ -322,6 +322,61 @@ class ImovelService {
       throw error;
     }
   }
+
+  async update(id: number, data: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/imoveis/${id}`, {
+        method: 'PUT',
+        headers: this.authService.getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update imovel');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async delete(id: number) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/imoveis/${id}`, {
+        method: 'DELETE',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete imovel');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async listFacesByQuarteirao(quarteiraoId: number) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faces`, {
+        method: 'GET',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch faces');
+      }
+
+      const faces = await response.json();
+      return faces.filter((f: any) => f.id_quarteirao === quarteiraoId);
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 class LocalidadeService {
