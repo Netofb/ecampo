@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   StatusBar,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -114,6 +115,7 @@ const LoginScreen: React.FC = () => {
       >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.content}>
+          <Image source={require('../../assets/logoEcampo.png')} style={styles.logo} resizeMode="contain" />
           <Text style={[styles.title, { color: colors.text }]}>Bem-vindo ao eCampo</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Faça login com seu CPF e senha</Text>
 
@@ -174,6 +176,12 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 24,
     paddingVertical: 40,
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    alignSelf: 'center',
+    marginBottom: 24,
   },
   title: {
     fontSize: 32,

@@ -136,9 +136,10 @@ const HomeScreen: React.FC = () => {
       icon: '🗺️', 
       hasDropdown: true,
       dropdownItems: [
-        { id: 41, label: 'Mapa da Propriedade', screen: 'MapaPropriedade', icon: '📍' },
-        { id: 42, label: 'Mapa de Produção', screen: 'MapaProducao', icon: '🌱' },
-        { id: 43, label: 'GPS Tracking', screen: 'GPS', icon: '🎯' },
+        { id: 41, label: 'Mapa Geral', screen: 'Mapa', icon: '🗺️' },
+        { id: 42, label: 'Mapa de Quarteirões', screen: 'MapaPropriedade', icon: '📍' },
+        { id: 43, label: 'Mapa de Faces', screen: 'MapaProducao', icon: '🏘️' },
+        { id: 44, label: 'Mapa de Imóveis', screen: 'GPS', icon: '🏢' },
       ]
     },
     // Itens SEM dropdown (vão direto para uma tela)

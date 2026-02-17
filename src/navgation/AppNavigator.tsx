@@ -34,6 +34,7 @@ import ExportarDados from '../screens/screensOutros/ExportarDados';
 import MapaPropriedade from '../screens/screensMapa/MapaPropriedade';
 import MapaProducao from '../screens/screensMapa/MapaProducao';
 import GPS from '../screens/screensOutros/GPS';
+import Mapa from '../screens/screensOutros/Mapa';
 
 // OUTRAS TELAS
 import Configuracoes from '../screens/screensOutros/Configuracoes';
@@ -72,6 +73,7 @@ export type RootStackParamList = {
   MapaPropriedade: undefined;
   MapaProducao: undefined;
   GPS: undefined;
+  Mapa: undefined;
   
   // Outros
   Configuracoes: undefined;
@@ -250,6 +252,11 @@ const AppNavigator: React.FC = () => {
             />
             
             {/* TELAS DE MAPAS */}
+            <Stack.Screen 
+              name="Mapa" 
+              component={Mapa}
+              options={{ title: 'Mapa Geral', headerShown: false }}
+            />
             <Stack.Screen 
               name="MapaPropriedade" 
               component={MapaPropriedade}

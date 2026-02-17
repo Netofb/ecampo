@@ -32,7 +32,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 // Error handling
-app.use((err: any, req: Request, res: Response) => {
+app.use((err: any, req: Request, res: Response, next: any) => {
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 });

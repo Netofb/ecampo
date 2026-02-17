@@ -1,0 +1,10 @@
+node_modules/
+.expo/
+.expo-shared/
+backend/
+*.log
+.DS_Store
+*.keystore
+.env
+android/app/build/
+android/.gradle/

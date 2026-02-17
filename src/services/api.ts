@@ -1,10 +1,29 @@
 // API Service - Replaces Supabase
-// IMPORTANTE: No Android Emulator, use 10.0.2.2 em vez de localhost
-// No iOS Simulator e desenvolvimento local, use localhost
-const API_BASE_URL = 'http://10.0.2.2:3333/api'; // Android Emulator
-// const API_BASE_URL = 'http://localhost:3333/api'; // iOS Simulator / Local dev
-// const API_BASE_URL = 'http://192.168.0.107:3333/api'; // Seu IP (para rede corporativa) trabaljo
-// const API_BASE_URL = 'http://192.168.1.15:3333/api'; // Seu IP (para rede corporativa) casa
+import { Platform } from 'react-native';
+
+// Detecta automaticamente a URL baseado no ambiente
+const getApiUrl = () => {
+  // Se estiver rodando no Expo Go ou desenvolvimento
+  if (__DEV__) {
+    if (Platform.OS === 'android') {
+      return 'http://192.168.1.15:3333/api'; // Emulador Android - usar IP da rede
+    }
+    return 'http://192.168.1.15:3333/api'; // iOS/Expo Go
+  }
+  
+  // Produção
+  return 'http://192.168.1.15:3333/api';
+};
+
+const API_BASE_URL = getApiUrl();
+
+// Log da URL para debug
+console.log('🔗 API URL:', API_BASE_URL);
+console.log('📱 Platform:', Platform.OS);
+console.log('🔧 Dev Mode:', __DEV__);
+
+// Exportar para uso em telas de debug
+export const getApiUrlForDisplay = () => API_BASE_URL;
 
 class AuthService {
   private token: string | null = null;

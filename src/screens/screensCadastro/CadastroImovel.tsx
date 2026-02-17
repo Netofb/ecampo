@@ -13,7 +13,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { imovelService, quarteiraoService } from '../../services/api';
+import { imovelService, quarteiraoService, faceService } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface Imovel {
@@ -106,20 +106,8 @@ const CadastroImovel: React.FC = () => {
 
   const carregarFaces = async () => {
     try {
-      const AsyncStorage = await import('@react-native-async-storage/async-storage');
-      const token = await AsyncStorage.default.getItem('authToken');
-      
-      const response = await fetch('http://10.0.2.2:3333/api/faces', {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setFaces(data);
-      }
+      const data = await faceService.list();
+      setFaces(data);
     } catch (error) {
       console.error('Erro ao carregar faces:', error);
     }
