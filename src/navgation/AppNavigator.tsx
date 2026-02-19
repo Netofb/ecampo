@@ -31,17 +31,16 @@ import RelatorioFinanceiro from '../screens/screensRelatorio/RelatorioFinanceiro
 import ExportarDados from '../screens/screensOutros/ExportarDados';
 
 // TELAS DE MAPAS
-import MapaPropriedade from '../screens/screensMapa/MapaPropriedade';
-import MapaProducao from '../screens/screensMapa/MapaProducao';
+import MapaQuarteiroes from '../screens/screensMapa/MapaQuarteiroes';
+import MapaFaces from '../screens/screensMapa/MapaFaces';
+import MapaImoveis from '../screens/screensMapa/MapaImoveis';
 import GPS from '../screens/screensOutros/GPS';
-import Mapa from '../screens/screensOutros/Mapa';
 
 // OUTRAS TELAS
 import Configuracoes from '../screens/screensOutros/Configuracoes';
 import Ajuda from '../screens/screensOutros/Ajuda';
 import Quarteiroes from '../screens/Quarteiroes';
 import Faces from '../screens/screensOutros/Faces';
-import Imoveis from '../screens/screensOutros/Imoveis';
 import Localidades from '../screens/Localidades';
 
 // Defina TODOS os tipos de tela
@@ -70,17 +69,16 @@ export type RootStackParamList = {
   ExportarDados: undefined;
   
   // Mapas
-  MapaPropriedade: undefined;
-  MapaProducao: undefined;
+  MapaQuarteiroes: undefined;
+  MapaFaces: undefined;
+  MapaImoveis: undefined;
   GPS: undefined;
-  Mapa: undefined;
   
   // Outros
   Configuracoes: undefined;
   Ajuda: undefined;
   Quarteiroes: undefined;
   Faces: undefined;
-  Imoveis: undefined;
   Localidades: undefined;
 };
 
@@ -253,19 +251,19 @@ const AppNavigator: React.FC = () => {
             
             {/* TELAS DE MAPAS */}
             <Stack.Screen 
-              name="Mapa" 
-              component={Mapa}
-              options={{ title: 'Mapa Geral', headerShown: false }}
+              name="MapaQuarteiroes" 
+              component={MapaQuarteiroes}
+              options={{ title: 'Mapa de Quarteirões', headerShown: false }}
             />
             <Stack.Screen 
-              name="MapaPropriedade" 
-              component={MapaPropriedade}
-              options={{ title: 'Mapa da Propriedade' }}
+              name="MapaFaces" 
+              component={MapaFaces}
+              options={{ title: 'Mapa de Faces', headerShown: false }}
             />
             <Stack.Screen 
-              name="MapaProducao" 
-              component={MapaProducao}
-              options={{ title: 'Mapa de Produção' }}
+              name="MapaImoveis" 
+              component={MapaImoveis}
+              options={{ title: 'Mapa de Imóveis', headerShown: false }}
             />
             <Stack.Screen 
               name="GPS" 
@@ -293,11 +291,6 @@ const AppNavigator: React.FC = () => {
               name="Faces" 
               component={Faces}
               options={{ title: 'Faces' }}
-            />
-            <Stack.Screen 
-              name="Imoveis" 
-              component={Imoveis}
-              options={{ title: 'Imóveis' }}
             />
             <Stack.Screen 
               name="Localidades" 

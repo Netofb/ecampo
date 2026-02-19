@@ -9,21 +9,11 @@ export const listQuarteiroes = async (req: any, res: Response) => {
     const quarteiroes = await db('tb_quarteiroes as q')
       .leftJoin('tb_localidades as l', 'q.id_localidade', 'l.id_localidade')
       .leftJoin('tb_zonas as z', 'q.id_zona', 'z.id_zona')
-      .leftJoin(
-        db('producao')
-          .select('id_quarteirao')
-          .count('* as total_producoes')
-          .groupBy('id_quarteirao')
-          .as('p'),
-        'q.id_quadra',
-        'p.id_quarteirao'
-      )
       .where('q.id_usuario', userId)
       .select(
         'q.*',
         'l.nome_localidade',
-        'z.nome_zona',
-        db.raw('COALESCE(p.total_producoes, 0) as total_producoes')
+        'z.nome_zona'
       )
       .orderBy('q.id_quadra', 'asc');
     res.json(quarteiroes);

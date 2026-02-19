@@ -17,6 +17,9 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "O eCampo precisa acessar sua localização para exibir o mapa.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "O eCampo precisa acessar sua localização para exibir o mapa."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyDummy_Key_Replace_With_Real_One"
       }
     },
     "android": {
@@ -28,7 +31,12 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDummy_Key_Replace_With_Real_One"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -3,24 +3,16 @@ import { Platform } from 'react-native';
 
 // Detecta automaticamente a URL baseado no ambiente
 const getApiUrl = () => {
-  // Se estiver rodando no Expo Go ou desenvolvimento
   if (__DEV__) {
     if (Platform.OS === 'android') {
-      return 'http://192.168.1.15:3333/api'; // Emulador Android - usar IP da rede
+      return 'http://192.168.1.7:3333/api';
     }
-    return 'http://192.168.1.15:3333/api'; // iOS/Expo Go
+    return 'http://192.168.1.7:3333/api';
   }
-  
-  // Produção
-  return 'http://192.168.1.15:3333/api';
+  return 'http://192.168.1.7:3333/api';
 };
 
 const API_BASE_URL = getApiUrl();
-
-// Log da URL para debug
-console.log('🔗 API URL:', API_BASE_URL);
-console.log('📱 Platform:', Platform.OS);
-console.log('🔧 Dev Mode:', __DEV__);
 
 // Exportar para uso em telas de debug
 export const getApiUrlForDisplay = () => API_BASE_URL;
@@ -149,8 +141,6 @@ class QuarteiraoService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.log('Error response:', errorText);
         throw new Error('Failed to fetch quarteirões');
       }
 
@@ -294,6 +284,26 @@ class FaceService {
 
       return await response.json();
     } catch (error) {
+      throw error;
+    }
+  }
+
+  async getMap() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/faces/map`, {
+        method: 'GET',
+        headers: this.authService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Faces map error response:', errorText);
+        throw new Error(`Failed to fetch faces map: ${response.status} - ${errorText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error('Faces map fetch error:', error);
       throw error;
     }
   }

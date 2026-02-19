@@ -80,7 +80,6 @@ const LoginScreen: React.FC = () => {
     } catch (error: any) {
       const message = error.message || 'Ocorreu um erro ao fazer login. Tente novamente.';
       Alert.alert('Erro no login', message);
-      console.error('Erro no login:', error);
     } finally {
       setLoading(false);
     }

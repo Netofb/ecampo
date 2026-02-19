@@ -14,6 +14,7 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { quarteiraoService, localidadeService, zonaService } from '../../services/api';
@@ -64,7 +65,7 @@ const CadastroQuarteirao: React.FC = () => {
   const [localidades, setLocalidades] = useState<any[]>([]);
   const [zonas, setZonas] = useState<any[]>([]);
   
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [tabelaExiste, setTabelaExiste] = useState(true);
 
   // Filtra quarteirões por busca
@@ -94,7 +95,6 @@ const CadastroQuarteirao: React.FC = () => {
   const carregarQuarteiroes = async () => {
     try {
       setLoading(true);
-      
       const data = await quarteiraoService.list();
       
       const quarteiroesMapeados = data.map((q: any) => ({
@@ -114,8 +114,8 @@ const CadastroQuarteirao: React.FC = () => {
       setTabelaExiste(true);
       setPaginaAtual(1);
       
-    } catch (error) {
-      console.error('❌ Erro ao carregar quarteirões:', error);
+    } catch (error: any) {
+      setQuarteiroes([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -132,14 +132,13 @@ const CadastroQuarteirao: React.FC = () => {
       setLocalidades(localidadesData);
       setZonas(zonasData);
     } catch (error) {
-      console.error('Erro ao carregar localidades/zonas:', error);
+      // Silently fail
     }
   };
 
   // Carregar dados inicial
   useEffect(() => {
     carregarQuarteiroes();
-    carregarLocalidadesEZonas();
   }, []);
 
   // Pull to refresh
@@ -149,9 +148,15 @@ const CadastroQuarteirao: React.FC = () => {
   };
 
   // Função para abrir modal de cadastro
-  const abrirModalCadastro = () => {
+  const abrirModalCadastro = async () => {
     setEditando(false);
     setQuarteiraoEditando(null);
+    
+    // Carrega localidades e zonas apenas quando abrir o modal
+    if (localidades.length === 0 || zonas.length === 0) {
+      await carregarLocalidadesEZonas();
+    }
+    
     setFormData({
       numero: '',
       nome: '',
@@ -165,9 +170,15 @@ const CadastroQuarteirao: React.FC = () => {
   };
 
   // Função para abrir modal de edição
-  const abrirModalEdicao = (quarteirao: Quarteirao) => {
+  const abrirModalEdicao = async (quarteirao: Quarteirao) => {
     setEditando(true);
     setQuarteiraoEditando(quarteirao);
+    
+    // Carrega localidades e zonas apenas quando abrir o modal
+    if (localidades.length === 0 || zonas.length === 0) {
+      await carregarLocalidadesEZonas();
+    }
+    
     setFormData({
       numero: quarteirao.numero.toString(),
       nome: quarteirao.nome,
@@ -214,7 +225,6 @@ const CadastroQuarteirao: React.FC = () => {
       await carregarQuarteiroes();
       setModalVisible(false);
     } catch (error: any) {
-      console.error('Erro ao salvar quarteirão:', error);
       const mensagem = error.response?.data?.error || 'Não foi possível salvar o quarteirão. Verifique se a localidade e zona existem.';
       Alert.alert('Erro', mensagem);
     }
@@ -275,7 +285,7 @@ const CadastroQuarteirao: React.FC = () => {
               <Text style={styles.numeroText}>#{quarteirao.numero}</Text>
             </View>
             <View style={styles.nomeContainer}>
-              <Text style={styles.nomeText}>📍 {quarteirao.nome}</Text>
+              <Text style={styles.nomeText}>{quarteirao.nome}</Text>
             </View>
           </View>
           
@@ -284,7 +294,7 @@ const CadastroQuarteirao: React.FC = () => {
             { backgroundColor: quarteirao.status === 'Ativo' ? '#4CAF50' : '#FF9800' }
           ]}>
             <Text style={styles.statusText}>
-              {quarteirao.status === 'Ativo' ? '✅ Ativo' : '⏸️ Inativo'}
+              {quarteirao.status === 'Ativo' ? 'Ativo' : 'Inativo'}
             </Text>
           </View>
         </View>
@@ -293,12 +303,12 @@ const CadastroQuarteirao: React.FC = () => {
         <View style={styles.cardDetails}>
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>🏠 Localidade:</Text>
+              <Text style={styles.detailLabel}>Localidade:</Text>
               <Text style={styles.detailValue}>{quarteirao.localidade}</Text>
             </View>
             
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>🧭 Zona:</Text>
+              <Text style={styles.detailLabel}>Zona:</Text>
               <Text style={styles.detailValue}>{quarteirao.zona}</Text>
             </View>
           </View>
@@ -310,14 +320,16 @@ const CadastroQuarteirao: React.FC = () => {
             style={[styles.actionButton, styles.editButton]}
             onPress={() => abrirModalEdicao(quarteirao)}
           >
-            <Text style={styles.actionButtonText}>✏️ Editar</Text>
+            <Ionicons name="create-outline" size={16} color="#2196F3" />
+            <Text style={[styles.actionButtonText, {color: '#2196F3', marginLeft: 4}]}>Editar</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => excluirQuarteirao(quarteirao.id)}
           >
-            <Text style={styles.actionButtonText}>🗑️ Excluir</Text>
+            <Ionicons name="trash-outline" size={16} color="#FF5252" />
+            <Text style={[styles.actionButtonText, {color: '#FF5252', marginLeft: 4}]}>Excluir</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -365,11 +377,12 @@ const CadastroQuarteirao: React.FC = () => {
           onPress={irParaPaginaAnterior}
           disabled={paginaAtual === 1}
         >
+          <Ionicons name="chevron-back" size={16} color={paginaAtual === 1 ? '#999' : '#333'} />
           <Text style={[
             styles.navButtonText,
             paginaAtual === 1 && styles.navButtonTextDisabled
           ]}>
-            ⬅️ Anterior
+            Anterior
           </Text>
         </TouchableOpacity>
 
@@ -386,8 +399,9 @@ const CadastroQuarteirao: React.FC = () => {
             styles.navButtonText,
             paginaAtual === totalPaginas && styles.navButtonTextDisabled
           ]}>
-            Próxima ➡️
+            Próxima
           </Text>
+          <Ionicons name="chevron-forward" size={16} color={paginaAtual === totalPaginas ? '#999' : '#333'} />
         </TouchableOpacity>
       </View>
     );
@@ -398,7 +412,7 @@ const CadastroQuarteirao: React.FC = () => {
     if (loading && quarteiroes.length === 0) {
       return (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingIcon}>⏳</Text>
+          <MaterialIcons name="hourglass-empty" size={48} color="#666" />
           <Text style={styles.loadingText}>Carregando quarteirões...</Text>
         </View>
       );
@@ -407,7 +421,7 @@ const CadastroQuarteirao: React.FC = () => {
     if (quarteiroesFiltrados.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🔍</Text>
+          <Ionicons name="search" size={64} color="#ccc" />
           <Text style={styles.emptyText}>
             {busca ? 'Nenhum quarteirão encontrado' : 'Nenhum quarteirão cadastrado'}
           </Text>
@@ -417,7 +431,7 @@ const CadastroQuarteirao: React.FC = () => {
             </Text>
           ) : (
             <Text style={styles.emptySubtext}>
-              Clique em "➕ Novo Quarteirão" para adicionar o primeiro
+              Clique em "Novo Quarteirão" para adicionar o primeiro
             </Text>
           )}
         </View>
@@ -458,16 +472,16 @@ const CadastroQuarteirao: React.FC = () => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>🏗️ Quarteirões Cadastrados</Text>
+        <Text style={styles.headerTitle}>Quarteirões Cadastrados</Text>
         <View style={styles.headerRight} />
       </View>
 
       {/* Barra de busca */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar quarteirão, localidade ou zona..."
@@ -477,7 +491,7 @@ const CadastroQuarteirao: React.FC = () => {
           />
           {busca.length > 0 && (
             <TouchableOpacity onPress={() => setBusca('')} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>✕</Text>
+              <Ionicons name="close" size={18} color="#666" />
             </TouchableOpacity>
           )}
         </View>
@@ -493,7 +507,7 @@ const CadastroQuarteirao: React.FC = () => {
             style={styles.newButton}
             onPress={abrirModalCadastro}
           >
-            <Text style={styles.plusIcon}>➕</Text>
+            <Ionicons name="add" size={20} color="#FFFFFF" style={styles.plusIcon} />
             <Text style={styles.newButtonText}>Novo Quarteirão</Text>
           </TouchableOpacity>
         </View>
@@ -547,19 +561,19 @@ const CadastroQuarteirao: React.FC = () => {
       {quarteiroesFiltrados.length > 0 && (
         <View style={styles.summary}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryIcon}>📊</Text>
+            <Ionicons name="stats-chart" size={16} color="#666" style={styles.summaryIcon} />
             <Text style={styles.summaryLabel}>Total:</Text>
             <Text style={styles.summaryValue}>{totalItens}</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryIcon}>📏</Text>
+            <Ionicons name="resize" size={16} color="#666" style={styles.summaryIcon} />
             <Text style={styles.summaryLabel}>Área Total:</Text>
             <Text style={styles.summaryValue}>
               {quarteiroesFiltrados.reduce((sum, q) => sum + q.area, 0).toFixed(1)} ha
             </Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryIcon}>✅</Text>
+            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" style={styles.summaryIcon} />
             <Text style={styles.summaryLabel}>Ativos:</Text>
             <Text style={styles.summaryValue}>
               {quarteiroesFiltrados.filter(q => q.status === 'Ativo').length}
@@ -579,19 +593,19 @@ const CadastroQuarteirao: React.FC = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {editando ? '✏️ Editar Quarteirão' : '➕ Novo Quarteirão'}
+                {editando ? 'Editar Quarteirão' : 'Novo Quarteirão'}
               </Text>
               <TouchableOpacity 
                 onPress={() => setModalVisible(false)}
                 style={styles.closeButton}
               >
-                <Text style={styles.closeIcon}>✕</Text>
+                <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalForm}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>🔢 Número do Quarteirão *</Text>
+                <Text style={styles.label}>Número do Quarteirão *</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: 1"
@@ -602,7 +616,7 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>📍 Nome do Quarteirão *</Text>
+                <Text style={styles.label}>Nome do Quarteirão *</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: Quarteirão Norte"
@@ -613,7 +627,7 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>🏠 Localidade *</Text>
+                <Text style={styles.label}>Localidade *</Text>
                 <View style={styles.pickerContainer}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {localidades.map((loc) => (
@@ -638,7 +652,7 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>🧭 Zona *</Text>
+                <Text style={styles.label}>Zona *</Text>
                 <View style={styles.pickerContainer}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {zonas.map((zona) => (
@@ -663,7 +677,7 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>📏 Área (hectares) (opcional)</Text>
+                <Text style={styles.label}>Área (hectares) (opcional)</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: 5.2"
@@ -674,7 +688,7 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>📝 Descrição (opcional)</Text>
+                <Text style={styles.label}>Descrição (opcional)</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   placeholder="Descreva este quarteirão..."
@@ -686,17 +700,19 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>📊 Status</Text>
+                <Text style={styles.label}>Status</Text>
                 <View style={styles.radioGroup}>
                   <TouchableOpacity
                     key="ativo"
                     style={styles.radioButton}
                     onPress={() => setFormData({ ...formData, status: 'Ativo' })}
                   >
-                    <Text style={styles.radioIcon}>
-                      {formData.status === 'Ativo' ? '🔘' : '⚪'}
-                    </Text>
-                    <Text style={styles.radioLabel}>✅ Ativo</Text>
+                    <Ionicons 
+                      name={formData.status === 'Ativo' ? 'radio-button-on' : 'radio-button-off'} 
+                      size={24} 
+                      color={formData.status === 'Ativo' ? '#4CAF50' : '#999'} 
+                    />
+                    <Text style={styles.radioLabel}>Ativo</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity
@@ -704,10 +720,12 @@ const CadastroQuarteirao: React.FC = () => {
                     style={styles.radioButton}
                     onPress={() => setFormData({ ...formData, status: 'Inativo' })}
                   >
-                    <Text style={styles.radioIcon}>
-                      {formData.status === 'Inativo' ? '🔘' : '⚪'}
-                    </Text>
-                    <Text style={styles.radioLabel}>⏸️ Inativo</Text>
+                    <Ionicons 
+                      name={formData.status === 'Inativo' ? 'radio-button-on' : 'radio-button-off'} 
+                      size={24} 
+                      color={formData.status === 'Inativo' ? '#FF9800' : '#999'} 
+                    />
+                    <Text style={styles.radioLabel}>Inativo</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -728,7 +746,7 @@ const CadastroQuarteirao: React.FC = () => {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>❌ Cancelar</Text>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -736,7 +754,7 @@ const CadastroQuarteirao: React.FC = () => {
                 onPress={salvarQuarteirao}
               >
                 <Text style={styles.saveButtonText}>
-                  {editando ? '💾 Atualizar' : '✅ Cadastrar'}
+                  {editando ? 'Atualizar' : 'Cadastrar'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -764,10 +782,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: '#333',
   },
   headerTitle: {
     fontSize: 18,
@@ -797,8 +811,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   searchIcon: {
-    fontSize: 18,
-    color: '#666',
     marginRight: 8,
   },
   searchInput: {
@@ -807,13 +819,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: '#333',
   },
-  clearButton: {
-    padding: 4,
-  },
-  clearButtonText: {
-    fontSize: 18,
-    color: '#666',
-  },
+
   resultadosText: {
     fontSize: 12,
     color: '#666',
@@ -851,7 +857,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   plusIcon: {
-    fontSize: 16,
     marginRight: 8,
   },
   newButtonText: {
@@ -903,10 +908,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
-  loadingIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
+
   loadingText: {
     fontSize: 16,
     color: '#666',
@@ -1038,6 +1040,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#F0F0F0',
   },
   actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
@@ -1067,6 +1071,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E5EA',
   },
   navButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
@@ -1129,10 +1135,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
+
   emptyText: {
     fontSize: 18,
     color: '#666',
@@ -1181,7 +1184,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   summaryIcon: {
-    fontSize: 14,
     marginRight: 6,
   },
   summaryLabel: {
@@ -1219,13 +1221,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  closeButton: {
-    padding: 4,
-  },
-  closeIcon: {
-    fontSize: 24,
-    color: '#666',
-  },
+
   modalForm: {
     padding: 20,
   },
@@ -1263,10 +1259,7 @@ const styles = StyleSheet.create({
   radioButton: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  radioIcon: {
-    fontSize: 20,
-    marginRight: 8,
+    gap: 8,
   },
   radioLabel: {
     fontSize: 16,

@@ -12,6 +12,7 @@ import {
   StatusBar,
   Image
 } from 'react-native';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/api';
@@ -61,99 +62,65 @@ const HomeScreen: React.FC = () => {
   const [userPhoto, setUserPhoto] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
-
-  // Dados dos cards (usando texto/emoji)
-  const cards: CardData[] = [
-    {
-      id: 1,
-      title: 'Quarteirões Cadastrados',
-      value: '34',
-      icon: '📍',
-      color: '#4CAF50',
-    },
-    {
-      id: 2,
-      title: 'Faces cadastradas',
-      value: '66',
-      icon: '🏠',
-      color: '#2196F3',
-    },
-    {
-      id: 3,
-      title: 'Imóveis Cadastrados',
-      value: '37',
-      icon: '🏢',
-      color: '#FF9800',
-    },
-    {
-      id: 4,
-      title: 'Localidades Cadastradas',
-      value: '1',
-      icon: '🗺️',
-      color: '#9C27B0',
-    },
-  ];
+  const [cards, setCards] = useState<CardData[]>([]);
 
   // Itens do menu lateral com navegação
   const menuItems: MenuItem[] = [
     { 
       id: 1, 
       title: 'Cadastros', 
-      icon: '📝', 
+      icon: 'create-outline', 
       hasDropdown: true,
       dropdownItems: [
-        { id: 11, label: 'Cadastrar Quarteirão', screen: 'CadastroQuarteirao', icon: '📍' },
-        { id: 12, label: 'Cadastrar Face', screen: 'CadastroFace', icon: '🏠' },
-        { id: 13, label: 'Cadastrar Imóvel', screen: 'CadastroImovel', icon: '🏢' },
+        { id: 11, label: 'Cadastrar Quarteirão', screen: 'CadastroQuarteirao', icon: 'location-outline' },
+        { id: 12, label: 'Cadastrar Face', screen: 'CadastroFace', icon: 'home-outline' },
+        { id: 13, label: 'Cadastrar Imóvel', screen: 'CadastroImovel', icon: 'business-outline' },
        
       ]
     },
     { 
       id: 2, 
       title: 'Produção', 
-      icon: '⚙️', 
+      icon: 'clipboard-outline', 
       hasDropdown: true,
       dropdownItems: [
-        { id: 21, label: 'Iniciar Produção', screen: 'ProducaoInicio', icon: '🚜' },
-        { id: 22, label: 'Controle Diário', screen: 'ProducaoControle', icon: '📋' },
-        { id: 23, label: 'Histórico', screen: 'ProducaoHistorico', icon: '📊' },
+        { id: 21, label: 'Registrar atividade', screen: 'ProducaoInicio', icon: 'add-circle-outline' },
       ]
     },
     { 
       id: 3, 
       title: 'Relatórios', 
-      icon: '📊', 
+      icon: 'stats-chart-outline', 
       hasDropdown: true,
       dropdownItems: [
-        { id: 31, label: 'Relatório Geral', screen: 'RelatorioGeral', icon: '📈' },
-        { id: 32, label: 'Relatório Financeiro', screen: 'RelatorioFinanceiro', icon: '💰' },
-        { id: 33, label: 'Exportar Dados', screen: 'ExportarDados', icon: '📤' },
+        { id: 31, label: 'Relatório Geral', screen: 'RelatorioGeral', icon: 'trending-up-outline' },
+        { id: 32, label: 'Relatório Financeiro', screen: 'RelatorioFinanceiro', icon: 'cash-outline' },
+        { id: 33, label: 'Exportar Dados', screen: 'ExportarDados', icon: 'cloud-upload-outline' },
       ]
     },
     { 
       id: 4, 
       title: 'Mapas', 
-      icon: '🗺️', 
+      icon: 'map-outline', 
       hasDropdown: true,
       dropdownItems: [
-        { id: 41, label: 'Mapa Geral', screen: 'Mapa', icon: '🗺️' },
-        { id: 42, label: 'Mapa de Quarteirões', screen: 'MapaPropriedade', icon: '📍' },
-        { id: 43, label: 'Mapa de Faces', screen: 'MapaProducao', icon: '🏘️' },
-        { id: 44, label: 'Mapa de Imóveis', screen: 'GPS', icon: '🏢' },
+        { id: 41, label: 'Mapa de Quarteirões', screen: 'MapaQuarteiroes', icon: 'location-outline' },
+        { id: 42, label: 'Mapa de Faces', screen: 'MapaFaces', icon: 'grid-outline' },
+        { id: 43, label: 'Mapa de Imóveis', screen: 'MapaImoveis', icon: 'business-outline' },
       ]
     },
     // Itens SEM dropdown (vão direto para uma tela)
     { 
       id: 5, 
       title: 'Configurações', 
-      icon: '⚙️', 
+      icon: 'settings-outline', 
       hasDropdown: false,
       screen: 'Configuracoes'
     },
     { 
       id: 6, 
       title: 'Ajuda', 
-      icon: '❓', 
+      icon: 'help-circle-outline', 
       hasDropdown: false,
       screen: 'Ajuda'
     },
@@ -161,14 +128,16 @@ const HomeScreen: React.FC = () => {
 
   // Mapeamento para navegação dos cards
   const cardNavigation: Record<number, string> = {
-    1: 'Quarteiroes',
-    2: 'Faces',
-    3: 'Imoveis',
+    1: 'CadastroQuarteirao',
+    2: 'CadastroFace',
+    3: 'CadastroImovel',
     4: 'Localidades',
   };
 
   useEffect(() => {
     loadUserData();
+    // Carrega stats em background sem bloquear a UI
+    setTimeout(() => loadStats(), 100);
   }, []);
 
   const loadUserData = async () => {
@@ -180,10 +149,63 @@ const HomeScreen: React.FC = () => {
       if (name) setUserName(name);
       if (ibge) setUserIbge(ibge);
       if (photo) setUserPhoto(photo);
+      
+      // Define cards vazios imediatamente
+      setCards([
+        { id: 1, title: 'Quarteirões Cadastrados', value: '', icon: 'location', color: '#4CAF50' },
+        { id: 2, title: 'Faces cadastradas', value: '', icon: 'home', color: '#2196F3' },
+        { id: 3, title: 'Imóveis Cadastrados', value: '', icon: 'business', color: '#FF9800' },
+        { id: 4, title: 'Localidades Cadastradas', value: '', icon: 'map', color: '#9C27B0' },
+      ]);
+      setLoading(false);
     } catch (error) {
       console.error('Erro ao carregar dados do usuário:', error);
-    } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const response = await fetch('http://192.168.1.7:3333/api/stats', {
+        headers: authService.getAuthHeaders(),
+      });
+      
+      if (!response.ok) throw new Error('Erro ao carregar estatísticas');
+      
+      const data = await response.json();
+
+      setCards([
+        {
+          id: 1,
+          title: 'Quarteirões Cadastrados',
+          value: String(data.quarteiroes || 0),
+          icon: 'location',
+          color: '#4CAF50',
+        },
+        {
+          id: 2,
+          title: 'Faces cadastradas',
+          value: String(data.faces || 0),
+          icon: 'home',
+          color: '#2196F3',
+        },
+        {
+          id: 3,
+          title: 'Imóveis Cadastrados',
+          value: String(data.imoveis || 0),
+          icon: 'business',
+          color: '#FF9800',
+        },
+        {
+          id: 4,
+          title: 'Localidades Cadastradas',
+          value: String(data.localidades || 0),
+          icon: 'map',
+          color: '#9C27B0',
+        },
+      ]);
+    } catch (error) {
+      // Silently fail
     }
   };
 
@@ -241,7 +263,7 @@ const HomeScreen: React.FC = () => {
             style={styles.menuButton}
             onPress={() => setMenuOpen(!menuOpen)}
           >
-            <Text style={[styles.menuIcon, { color: colors.text }]}>{menuOpen ? '✕' : '☰'}</Text>
+            <Ionicons name={menuOpen ? 'close' : 'menu'} size={24} color={colors.text} />
           </TouchableOpacity>
 
           {/* Logo (Centro) */}
@@ -293,13 +315,11 @@ const HomeScreen: React.FC = () => {
                       }}
                     >
                       <View style={styles.menuItemLeft}>
-                        <Text style={styles.menuItemIcon}>{item.icon}</Text>
+                        <Ionicons name={item.icon as any} size={20} color={colors.text} style={styles.menuItemIcon} />
                         <Text style={[styles.menuItemText, { color: colors.text }]}>{item.title}</Text>
                       </View>
                       {item.hasDropdown && (
-                        <Text style={[styles.dropdownIcon, { color: colors.textSecondary }]}>
-                          {activeDropdown === item.id ? '▲' : '▼'}
-                        </Text>
+                        <Ionicons name={activeDropdown === item.id ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
                       )}
                     </TouchableOpacity>
                     
@@ -313,10 +333,10 @@ const HomeScreen: React.FC = () => {
                             onPress={() => handleNavigation(dropdownItem.screen)}
                           >
                             {dropdownItem.icon && (
-                              <Text style={styles.dropdownItemIcon}>{dropdownItem.icon}</Text>
+                              <Ionicons name={dropdownItem.icon as any} size={18} color={colors.textSecondary} style={styles.dropdownItemIcon} />
                             )}
                             <Text style={[styles.dropdownItemText, { color: colors.textSecondary }]}>{dropdownItem.label}</Text>
-                            <Text style={[styles.chevronRight, { color: colors.textSecondary }]}>{'›'}</Text>
+                            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -333,7 +353,7 @@ const HomeScreen: React.FC = () => {
                   style={styles.logoutMenuButton} 
                   onPress={handleLogout}
                 >
-                  <Text style={styles.logoutIcon}>🚪</Text>
+                  <Ionicons name="log-out-outline" size={20} color={colors.danger} style={styles.logoutIcon} />
                   <Text style={[styles.logoutMenuText, { color: colors.danger }]}>Sair</Text>
                 </TouchableOpacity>
               </View>
@@ -350,7 +370,7 @@ const HomeScreen: React.FC = () => {
                 <View key={card.id} style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
                   <View style={styles.cardHeader}>
                     <View style={[styles.cardIconContainer, { backgroundColor: `${card.color}20` }]}>
-                      <Text style={[styles.cardIcon, { color: card.color }]}>{card.icon}</Text>
+                      <Ionicons name={card.icon as any} size={24} color={card.color} />
                     </View>
                     <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>{card.title}</Text>
                   </View>
@@ -374,7 +394,7 @@ const HomeScreen: React.FC = () => {
                     <Text style={[styles.cardButtonText, { color: card.color }]}>
                       Ver detalhes
                     </Text>
-                    <Text style={[styles.chevron, { color: card.color }]}>{'›'}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={card.color} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -496,15 +516,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menuItemIcon: {
-    fontSize: 20,
     marginRight: 12,
   },
   menuItemText: {
     fontSize: 16,
   },
-  dropdownIcon: {
-    fontSize: 12,
-  },
+
   dropdownContent: {
     paddingLeft: 52,
   },
@@ -516,19 +533,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   dropdownItemIcon: {
-    fontSize: 16,
     marginRight: 10,
-    width: 24,
-    textAlign: 'center',
   },
   dropdownItemText: {
     fontSize: 14,
     flex: 1,
   },
-  chevronRight: {
-    fontSize: 18,
-    marginLeft: 8,
-  },
+
   menuFooter: {
     padding: 20,
     borderTopWidth: 1,
@@ -565,7 +576,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   logoutIcon: {
-    fontSize: 18,
     marginRight: 12,
   },
   logoutMenuText: {
@@ -615,9 +625,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  cardIcon: {
-    fontSize: 20,
-  },
+
   cardTitle: {
     fontSize: 14,
     flex: 1,
@@ -644,10 +652,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 4,
   },
-  chevron: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+
   spacer: {
     height: 100,
   },

@@ -12,6 +12,7 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { faceService, quarteiraoService, authService } from '../../services/api';
@@ -73,7 +74,7 @@ const CadastroFace: React.FC = () => {
       setFaces(data);
       setPaginaAtual(1);
     } catch (error) {
-      console.error('Erro ao carregar faces:', error);
+      // Silently fail
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -85,7 +86,7 @@ const CadastroFace: React.FC = () => {
       const data = await quarteiraoService.list();
       setQuarteiroes(data);
     } catch (error) {
-      console.error('Erro ao carregar quarteirões:', error);
+      // Silently fail
     }
   };
 
@@ -158,7 +159,6 @@ const CadastroFace: React.FC = () => {
       await carregarFaces();
       setModalVisible(false);
     } catch (error: any) {
-      console.error('Erro ao salvar face:', error);
       Alert.alert('Erro', error.message || 'Não foi possível salvar a face');
     }
   };
@@ -195,7 +195,7 @@ const CadastroFace: React.FC = () => {
               <Text style={styles.numeroText}>#{face.numero_face}</Text>
             </View>
             <View style={styles.nomeContainer}>
-              <Text style={styles.nomeText}>📍 {face.nome_quadra || 'Quarteirão'}</Text>
+              <Text style={styles.nomeText}>{face.nome_quadra || 'Quarteirão'}</Text>
               <Text style={styles.numeroQuarteiraoText}>Nº {face.numero_quadra}</Text>
             </View>
           </View>
@@ -205,7 +205,7 @@ const CadastroFace: React.FC = () => {
             { backgroundColor: face.status === 'Ativo' ? '#4CAF50' : '#FF9800' }
           ]}>
             <Text style={styles.statusText}>
-              {face.status === 'Ativo' ? '✅ Ativo' : '⏸️ Inativo'}
+              {face.status === 'Ativo' ? 'Ativo' : 'Inativo'}
             </Text>
           </View>
         </View>
@@ -215,14 +215,16 @@ const CadastroFace: React.FC = () => {
             style={[styles.actionButton, styles.editButton]}
             onPress={() => abrirModalEdicao(face)}
           >
-            <Text style={styles.actionButtonText}>✏️ Editar</Text>
+            <Ionicons name="create-outline" size={16} color="#2196F3" />
+            <Text style={[styles.actionButtonText, {color: '#2196F3', marginLeft: 4}]}>Editar</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => excluirFace(face.id_face)}
           >
-            <Text style={styles.actionButtonText}>🗑️ Excluir</Text>
+            <Ionicons name="trash-outline" size={16} color="#FF5252" />
+            <Text style={[styles.actionButtonText, {color: '#FF5252', marginLeft: 4}]}>Excluir</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -238,15 +240,15 @@ const CadastroFace: React.FC = () => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>🏠 Faces Cadastradas</Text>
+        <Text style={styles.headerTitle}>Faces Cadastradas</Text>
         <View style={styles.headerRight} />
       </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar face ou quarteirão..."
@@ -256,7 +258,7 @@ const CadastroFace: React.FC = () => {
           />
           {busca.length > 0 && (
             <TouchableOpacity onPress={() => setBusca('')} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>✕</Text>
+              <Ionicons name="close" size={18} color="#666" />
             </TouchableOpacity>
           )}
         </View>
@@ -267,7 +269,7 @@ const CadastroFace: React.FC = () => {
           style={styles.newButton}
           onPress={abrirModalCadastro}
         >
-          <Text style={styles.plusIcon}>➕</Text>
+          <Ionicons name="add" size={20} color="#FFFFFF" style={styles.plusIcon} />
           <Text style={styles.newButtonText}>Nova Face</Text>
         </TouchableOpacity>
 
@@ -300,12 +302,12 @@ const CadastroFace: React.FC = () => {
 
       {loading && faces.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingIcon}>⏳</Text>
+          <MaterialIcons name="hourglass-empty" size={48} color="#666" />
           <Text style={styles.loadingText}>Carregando faces...</Text>
         </View>
       ) : facesFiltradas.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🔍</Text>
+          <Ionicons name="search" size={64} color="#ccc" />
           <Text style={styles.emptyText}>
             {busca ? 'Nenhuma face encontrada' : 'Nenhuma face cadastrada'}
           </Text>
@@ -330,8 +332,9 @@ const CadastroFace: React.FC = () => {
                 onPress={() => setPaginaAtual(paginaAtual - 1)}
                 disabled={paginaAtual === 1}
               >
+                <Ionicons name="chevron-back" size={16} color={paginaAtual === 1 ? '#999' : '#333'} />
                 <Text style={[styles.navButtonText, paginaAtual === 1 && styles.navButtonTextDisabled]}>
-                  ⬅️ Anterior
+                  Anterior
                 </Text>
               </TouchableOpacity>
 
@@ -359,8 +362,9 @@ const CadastroFace: React.FC = () => {
                 disabled={paginaAtual === totalPaginas}
               >
                 <Text style={[styles.navButtonText, paginaAtual === totalPaginas && styles.navButtonTextDisabled]}>
-                  Próxima ➡️
+                  Próxima
                 </Text>
+                <Ionicons name="chevron-forward" size={16} color={paginaAtual === totalPaginas ? '#999' : '#333'} />
               </TouchableOpacity>
             </View>
           )}
@@ -388,19 +392,19 @@ const CadastroFace: React.FC = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {editando ? '✏️ Editar Face' : '➕ Nova Face'}
+                {editando ? 'Editar Face' : 'Nova Face'}
               </Text>
               <TouchableOpacity 
                 onPress={() => setModalVisible(false)}
                 style={styles.closeButton}
               >
-                <Text style={styles.closeIcon}>✕</Text>
+                <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalForm}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>🔢 Número da Face *</Text>
+                <Text style={styles.label}>Número da Face *</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: 1"
@@ -411,7 +415,7 @@ const CadastroFace: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>📍 Quarteirão *</Text>
+                <Text style={styles.label}>Quarteirão *</Text>
                 <View style={styles.pickerContainer}>
                   <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
                     {quarteiroes.map((q) => (
@@ -437,7 +441,7 @@ const CadastroFace: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>📍 Nome da Linha/Polígono da Face</Text>
+                <Text style={styles.label}>Nome da Linha/Polígono da Face</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: Face norte, lado ímpar, quadra inteira"
@@ -448,17 +452,19 @@ const CadastroFace: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>📊 Status</Text>
+                <Text style={styles.label}>Status</Text>
                 <View style={styles.radioGroup}>
                   <TouchableOpacity
                     key="ativo"
                     style={styles.radioButton}
                     onPress={() => setFormData({ ...formData, status: 'Ativo' })}
                   >
-                    <Text style={styles.radioIcon}>
-                      {formData.status === 'Ativo' ? '🔘' : '⚪'}
-                    </Text>
-                    <Text style={styles.radioLabel}>✅ Ativo</Text>
+                    <Ionicons 
+                      name={formData.status === 'Ativo' ? 'radio-button-on' : 'radio-button-off'} 
+                      size={24} 
+                      color={formData.status === 'Ativo' ? '#4CAF50' : '#999'} 
+                    />
+                    <Text style={styles.radioLabel}>Ativo</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity
@@ -466,10 +472,12 @@ const CadastroFace: React.FC = () => {
                     style={styles.radioButton}
                     onPress={() => setFormData({ ...formData, status: 'Inativo' })}
                   >
-                    <Text style={styles.radioIcon}>
-                      {formData.status === 'Inativo' ? '🔘' : '⚪'}
-                    </Text>
-                    <Text style={styles.radioLabel}>⏸️ Inativo</Text>
+                    <Ionicons 
+                      name={formData.status === 'Inativo' ? 'radio-button-on' : 'radio-button-off'} 
+                      size={24} 
+                      color={formData.status === 'Inativo' ? '#FF9800' : '#999'} 
+                    />
+                    <Text style={styles.radioLabel}>Inativo</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -480,7 +488,7 @@ const CadastroFace: React.FC = () => {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>❌ Cancelar</Text>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -488,7 +496,7 @@ const CadastroFace: React.FC = () => {
                 onPress={salvarFace}
               >
                 <Text style={styles.saveButtonText}>
-                  {editando ? '💾 Atualizar' : '✅ Cadastrar'}
+                  {editando ? 'Atualizar' : 'Cadastrar'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -517,10 +525,6 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  backIcon: {
-    fontSize: 24,
-    color: '#333',
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -547,8 +551,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   searchIcon: {
-    fontSize: 18,
-    color: '#666',
     marginRight: 8,
   },
   searchInput: {
@@ -557,13 +559,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: '#333',
   },
-  clearButton: {
-    padding: 4,
-  },
-  clearButtonText: {
-    fontSize: 18,
-    color: '#666',
-  },
+
   controls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -585,7 +581,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   plusIcon: {
-    fontSize: 16,
     marginRight: 8,
   },
   newButtonText: {
@@ -631,10 +626,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
-  loadingIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
+
   loadingText: {
     fontSize: 16,
     color: '#666',
@@ -718,6 +710,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#F0F0F0',
   },
   actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
@@ -741,10 +735,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
+
   emptyText: {
     fontSize: 18,
     color: '#666',
@@ -775,13 +766,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  closeButton: {
-    padding: 4,
-  },
-  closeIcon: {
-    fontSize: 24,
-    color: '#666',
-  },
+
   modalForm: {
     padding: 20,
   },
@@ -835,10 +820,7 @@ const styles = StyleSheet.create({
   radioButton: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  radioIcon: {
-    fontSize: 20,
-    marginRight: 8,
+    gap: 8,
   },
   radioLabel: {
     fontSize: 16,
@@ -885,6 +867,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E5EA',
   },
   navButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
