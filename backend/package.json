@@ -7,12 +7,9 @@
     "dev": "npm run build && node dist/server.js",
     "build": "tsc",
     "start": "node dist/server.js",
-    "migrate": "knex migrate:latest",
-    "migrate:rollback": "knex migrate:rollback",
-    "seed": "knex seed:run",
-    "test": "jest",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "hash-password": "ts-node src/scripts/hashPassword.ts",
+    "list-tables": "ts-node src/scripts/listTables.ts",
+    "test-db": "ts-node src/scripts/testConnection.ts"
   },
   "keywords": [],
   "author": "Fabio Barros Lima",

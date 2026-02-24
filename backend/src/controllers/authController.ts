@@ -52,7 +52,7 @@ export const login = async (req: Request, res: Response) => {
     // Remover formatação do CPF
     const cpfLimpo = cpf.replace(/[.\-]/g, '');
 
-    // Buscar na tabela usuarios (CPF pode estar formatado ou não)
+    // Buscar na tabela usuarios
     const user = await db('usuarios')
       .whereRaw("REPLACE(REPLACE(cpf_usuario, '.', ''), '-', '') = ?", [cpfLimpo])
       .first();
@@ -61,8 +61,10 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Validar senha (assumindo senha padrão '123456' para todos)
-    if (password !== '123456') {
+    // Validar senha com bcrypt
+    const isPasswordValid = await comparePassword(password, user.senha);
+    
+    if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 

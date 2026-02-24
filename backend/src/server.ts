@@ -14,7 +14,7 @@ import statsRoutes from './routes/stats';
 dotenv.config();
 
 const app: Express = express();
-const PORT = process.env.PORT || 3333;
+const PORT = Number(process.env.PORT) || 3333;
 
 // Middleware
 app.use(cors());
@@ -40,8 +40,9 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`✅ Network: http://192.168.0.125:${PORT}`);
   console.log(`📚 API endpoints:`);
   console.log(`   POST   /api/auth/register`);
   console.log(`   POST   /api/auth/login`);
