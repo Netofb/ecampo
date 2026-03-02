@@ -1,18 +1,8 @@
 // API Service - Replaces Supabase
 import { Platform } from 'react-native';
 
-// Detecta automaticamente a URL baseado no ambiente
-const getApiUrl = () => {
-  if (__DEV__) {
-    if (Platform.OS === 'android') {
-      return 'http://192.168.1.7:3333/api';
-    }
-    return 'http://192.168.1.7:3333/api';
-  }
-  return 'http://192.168.1.7:3333/api';
-};
-
-const API_BASE_URL = getApiUrl();
+// URL da API - usa variável de ambiente ou fallback para desenvolvimento
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.7:3333/api';
 
 // Exportar para uso em telas de debug
 export const getApiUrlForDisplay = () => API_BASE_URL;

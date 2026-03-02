@@ -3,15 +3,28 @@
     "version": ">= 16.32.0"
   },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.1.7:3333/api"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://your-render-app.onrender.com/api"
       }
     },
     "production": {
       "android": {
-        "buildType": "apk"
+        "buildType": "aab"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://your-render-app.onrender.com/api"
       }
     }
   },

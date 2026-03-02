@@ -108,15 +108,20 @@ npm run android
 npm run ios
 ```
 
-## 🔑 Credenciais de Teste
+## Credenciais de Teste
 
+**Importante:** Configure as senhas dos usuários no banco de dados usando hash bcrypt.
 
+Para gerar hash de senha:
+```bash
+cd backend
+npm run hash-password sua_senha_aqui
+```
 
-**Usuário de Teste**
-- CPF: `12345678909`
-- Senha: `123456`
-
-> **Nota**: Todos os usuários da tabela `usuarios` podem fazer login com a senha padrão `123456`
+Depois atualize no banco:
+```sql
+UPDATE usuarios SET senha = '$2a$10$hash_gerado' WHERE cpf_usuario = 'CPF_DO_USUARIO';
+```
 
 ## 📖 Documentação
 
