@@ -15,7 +15,7 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authService } from '../services/api';
+import { authService, getApiUrlForDisplay } from '../services/api';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navgation/AppNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -166,7 +166,8 @@ const HomeScreen: React.FC = () => {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('http://192.168.1.7:3333/api/stats', {
+      const apiUrl = getApiUrlForDisplay();
+      const response = await fetch(`${apiUrl}/stats`, {
         headers: authService.getAuthHeaders(),
       });
       

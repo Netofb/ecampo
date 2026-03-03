@@ -16,15 +16,15 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-render-app.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://ecampo.onrender.com/api"
       }
     },
     "production": {
       "android": {
-        "buildType": "aab"
+        "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-render-app.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://ecampo.onrender.com/api"
       }
     }
   },
