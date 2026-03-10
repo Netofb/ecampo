@@ -20,6 +20,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navgation/AppNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -56,6 +57,7 @@ interface MenuItem {
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
+  const { logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [userIbge, setUserIbge] = useState<string>('');
@@ -220,11 +222,7 @@ const HomeScreen: React.FC = () => {
           text: 'Sair',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem('authToken');
-            await AsyncStorage.removeItem('userId');
-            await AsyncStorage.removeItem('userCPF');
-            await authService.logout();
-            // O AppNavigator vai detectar automaticamente e redirecionar para Login
+            await logout();
           },
         },
       ]

@@ -1,11 +1,9 @@
 // src/navigation/AppNavigator.tsx - VERSÃO COMPLETA COM TODAS AS TELAS
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authService } from '../services/api';
-import { ThemedScreen } from '../components/ThemedScreen';
+import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 // TELAS DE AUTENTICAÇÃO
 import LoginScreen from '../screens/LoginScreen';
@@ -86,38 +84,9 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
   const { colors, isDark } = useTheme();
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { status } = useAuth();
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const token = await AsyncStorage.getItem('authToken');
-        const userId = await AsyncStorage.getItem('userId');
-        const userIbge = await AsyncStorage.getItem('userIbge');
-        
-        if (token && userId) {
-          authService.setToken(token);
-          authService.setUserId(userId);
-          if (userIbge) {
-            authService.setUserIbge(userIbge);
-          }
-          setIsLoggedIn(true);
-        } else {
-          setIsLoggedIn(false);
-        }
-      } catch (error) {
-        console.error('Erro ao verificar autenticação:', error);
-        setIsLoggedIn(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuthStatus();
-  }, []);
-
-  if (loading) {
+  if (status === 'loading') {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -170,7 +139,7 @@ const AppNavigator: React.FC = () => {
           },
         }}
       >
-        {isLoggedIn === false ? (
+        {status === 'unauthenticated' ? (
           // USUÁRIO NÃO LOGADO - TELAS PÚBLICAS
           <>
             <Stack.Screen 

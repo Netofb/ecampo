@@ -12,21 +12,18 @@ import {
   StatusBar,
   Image,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
 import Input from '../components/Input';
 import { validateCPF, validatePassword } from '../utils/validation';
-import { authService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
 const LoginScreen: React.FC = () => {
-  const navigation = useNavigation();
   const { colors, isDark } = useTheme();
+  const { login, loading } = useAuth();
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [cpfError, setCpfError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const formatCPF = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
@@ -61,27 +58,11 @@ const LoginScreen: React.FC = () => {
       return;
     }
 
-    setLoading(true);
-
     try {
-      const response = await authService.login(cleanedCPF, password);
-
-      const firstName = response.user.name ? response.user.name.split(' ')[0] : '';
-
-      await AsyncStorage.setItem('authToken', response.token);
-      await AsyncStorage.setItem('userId', String(response.user.id));
-      await AsyncStorage.setItem('userCPF', cleanedCPF);
-      await AsyncStorage.setItem('userIbge', response.user.ibge || '');
-      await AsyncStorage.setItem('userName', firstName);
-      await AsyncStorage.setItem('userPhoto', response.user.link_foto || '');
-      
-      authService.setToken(response.token);
-      authService.setUserId(String(response.user.id));
+      await login(cleanedCPF, password);
     } catch (error: any) {
       const message = error.message || 'Ocorreu um erro ao fazer login. Tente novamente.';
       Alert.alert('Erro no login', message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -91,10 +72,6 @@ const LoginScreen: React.FC = () => {
       'O login com Google ainda não está configurado nesta versão.',
       [{ text: 'OK' }]
     );
-  };
-
-  const navigateToRegister = () => {
-    navigation.navigate('Register' as never);
   };
 
   const navigateToForgotPassword = () => {
