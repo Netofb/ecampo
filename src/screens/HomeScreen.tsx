@@ -1,4 +1,3 @@
-// src/screens/HomeScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -21,6 +20,7 @@ import { RootStackParamList } from '../navgation/AppNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { SyncService } from '../sync/SyncService';
 
 const { width } = Dimensions.get('window');
 
@@ -65,9 +65,18 @@ const HomeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
   const [cards, setCards] = useState<CardData[]>([]);
+  const [syncStatus, setSyncStatus] = useState({ pending: 0, conflicts: 0, lastSync: null as string | null });
+  const [syncing, setSyncing] = useState(false);
 
   // Itens do menu lateral com navegação
   const menuItems: MenuItem[] = [
+    { 
+      id: 0, 
+      title: 'Sincronizar', 
+      icon: 'sync-outline', 
+      hasDropdown: false,
+      screen: 'sync'
+    },
     { 
       id: 1, 
       title: 'Cadastros', 
@@ -138,9 +147,34 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     loadUserData();
-    // Carrega stats em background sem bloquear a UI
+    loadSyncStatus();
     setTimeout(() => loadStats(), 100);
   }, []);
+
+  const loadSyncStatus = async () => {
+    try {
+      const status = await SyncService.getSyncStatus();
+      setSyncStatus(status);
+    } catch (error) {
+      console.error('Erro ao carregar status de sync:', error);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await SyncService.sync();
+      Alert.alert(
+        'Sincronização concluída',
+        `Enviados: ${result.pushed.success}\nBaixados: ${result.pulled}\nConflitos: ${result.pushed.conflicts}`
+      );
+      await loadSyncStatus();
+    } catch (error: any) {
+      Alert.alert('Erro', error.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const loadUserData = async () => {
     try {
@@ -306,7 +340,10 @@ const HomeScreen: React.FC = () => {
                     <TouchableOpacity
                       style={[styles.menuItem, { borderBottomColor: colors.border }]}
                       onPress={() => {
-                        if (item.hasDropdown) {
+                        if (item.id === 0) {
+                          setMenuOpen(false);
+                          handleSync();
+                        } else if (item.hasDropdown) {
                           toggleDropdown(item.id);
                         } else if (item.screen) {
                           handleNavigation(item.screen);
@@ -316,6 +353,11 @@ const HomeScreen: React.FC = () => {
                       <View style={styles.menuItemLeft}>
                         <Ionicons name={item.icon as any} size={20} color={colors.text} style={styles.menuItemIcon} />
                         <Text style={[styles.menuItemText, { color: colors.text }]}>{item.title}</Text>
+                        {item.id === 0 && syncStatus.pending > 0 && (
+                          <View style={[styles.menuBadge, { backgroundColor: colors.danger }]}>
+                            <Text style={styles.menuBadgeText}>{syncStatus.pending}</Text>
+                          </View>
+                        )}
                       </View>
                       {item.hasDropdown && (
                         <Ionicons name={activeDropdown === item.id ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
@@ -441,6 +483,25 @@ const styles = StyleSheet.create({
     height: 40,
     width: 40,
   },
+  syncButton: {
+    padding: 8,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   profileButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -519,6 +580,20 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
+  },
+  menuBadge: {
+    marginLeft: 8,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  menuBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
 
   dropdownContent: {

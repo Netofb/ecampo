@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/api';
+import { openDatabase } from '../storage/db';
 
-type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
+type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'needs_sync';
 
 interface User {
   id: string;
@@ -19,6 +20,7 @@ interface AuthContextData {
   token: string | null;
   login: (cpf: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  completeSync: () => void;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -31,6 +33,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const bootstrap = async () => {
     try {
+      await openDatabase();
+      
       const storedToken = await AsyncStorage.getItem('authToken');
       const storedUserId = await AsyncStorage.getItem('userId');
       const storedUserCPF = await AsyncStorage.getItem('userCPF');
@@ -94,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         ibge: response.user.ibge || '',
         photo: response.user.link_foto || '',
       });
-      setStatus('authenticated');
+      setStatus('needs_sync');
     } finally {
       setLoading(false);
     }
@@ -120,8 +124,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const completeSync = () => {
+    setStatus('authenticated');
+  };
+
   return (
-    <AuthContext.Provider value={{ status, loading, user, token, login, logout }}>
+    <AuthContext.Provider value={{ status, loading, user, token, login, logout, completeSync }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,6 +11,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 
 // TELA PRINCIPAL
 import HomeScreen from '../screens/HomeScreen';
+import SyncInitialScreen from '../screens/SyncInitialScreen';
 
 // TELAS DE CADASTRO (importe as que você criou)
 import CadastroFace from '../screens/screensCadastro/CadastroFace';
@@ -49,6 +50,7 @@ export type RootStackParamList = {
   
   // Principal
   Home: undefined;
+  SyncInitial: undefined;
   
   // Cadastros
   CadastroFace: undefined;
@@ -153,6 +155,16 @@ const AppNavigator: React.FC = () => {
               options={{ title: 'Cadastro - ecampo' }}
             />
           </>
+        ) : status === 'needs_sync' ? (
+          // SINCRONIZAÇÃO INICIAL
+          <Stack.Screen 
+            name="SyncInitial" 
+            component={SyncInitialScreen}
+            options={{ 
+              title: 'Sincronização',
+              headerLeft: () => null,
+            }}
+          />
         ) : (
           // USUÁRIO LOGADO - TELAS PRIVADAS
           <>

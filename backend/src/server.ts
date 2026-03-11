@@ -9,6 +9,7 @@ import faceRoutes from './routes/faces';
 import imovelRoutes from './routes/imoveis';
 import localidadeRoutes from './routes/localidades';
 import statsRoutes from './routes/stats';
+import syncRoutes from './routes/sync';
 
 // Load environment variables
 dotenv.config();
@@ -28,6 +29,7 @@ app.use('/api/faces', faceRoutes);
 app.use('/api/imoveis', imovelRoutes);
 app.use('/api/localidades', localidadeRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/sync', syncRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

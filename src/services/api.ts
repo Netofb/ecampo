@@ -1,14 +1,8 @@
 // API Service - Replaces Supabase
 import { Platform } from 'react-native';
 
-// URL da API - obrigatório via variável de ambiente
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-
-if (!API_BASE_URL) {
-  throw new Error(
-    'EXPO_PUBLIC_API_URL não está definida. Configure em eas.json ou .env'
-  );
-}
+// URL da API com fallback para desenvolvimento
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.10:3333/api';
 
 // Exportar para uso em telas de debug
 export const getApiUrlForDisplay = () => API_BASE_URL;
