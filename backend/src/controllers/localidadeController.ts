@@ -1,8 +1,9 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import db from '../database';
 
 // ===== LOCALIDADES =====
-export const listLocalidades = async (req: any, res: Response) => {
+export const listLocalidades = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const localidades = await db('tb_localidades')
@@ -16,31 +17,29 @@ export const listLocalidades = async (req: any, res: Response) => {
   }
 };
 
-export const createLocalidade = async (req: any, res: Response) => {
+export const createLocalidade = async (req: AuthRequest, res: Response) => {
   try {
-    const { nome, descricao } = req.body;
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    if (!nome) {
+    const { id_usuario, ...payload } = req.body;
+
+    if (!payload.nome) {
       return res.status(400).json({ error: 'Nome is required' });
     }
 
-    const [id] = await db('tb_localidades').insert({
-      nome,
-      descricao,
-      created_at: new Date(),
-    });
+    const [row] = await db('tb_localidades')
+      .insert({ ...payload, id_usuario: userId })
+      .returning('*');
 
-    res.status(201).json({
-      id,
-      message: 'Localidade created successfully',
-    });
+    return res.status(201).json(row);
   } catch (error) {
     console.error('Create localidade error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-export const updateLocalidade = async (req: any, res: Response) => {
+export const updateLocalidade = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { nome, descricao } = req.body;
@@ -64,7 +63,7 @@ export const updateLocalidade = async (req: any, res: Response) => {
   }
 };
 
-export const deleteLocalidade = async (req: any, res: Response) => {
+export const deleteLocalidade = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -84,7 +83,7 @@ export const deleteLocalidade = async (req: any, res: Response) => {
 };
 
 // ===== ZONAS =====
-export const listZonas = async (req: any, res: Response) => {
+export const listZonas = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const zonas = await db('tb_zonas')
@@ -98,26 +97,24 @@ export const listZonas = async (req: any, res: Response) => {
   }
 };
 
-export const createZona = async (req: any, res: Response) => {
+export const createZona = async (req: AuthRequest, res: Response) => {
   try {
-    const { nome, descricao } = req.body;
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    if (!nome) {
+    const { id_usuario, ...payload } = req.body;
+
+    if (!payload.nome) {
       return res.status(400).json({ error: 'Nome is required' });
     }
 
-    const [id] = await db('tb_zonas').insert({
-      nome,
-      descricao,
-      created_at: new Date(),
-    });
+    const [row] = await db('tb_zonas')
+      .insert({ ...payload, id_usuario: userId })
+      .returning('*');
 
-    res.status(201).json({
-      id,
-      message: 'Zona created successfully',
-    });
+    return res.status(201).json(row);
   } catch (error) {
     console.error('Create zona error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };

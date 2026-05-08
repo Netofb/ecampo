@@ -65,78 +65,73 @@ const LoginScreen: React.FC = () => {
       Alert.alert('Erro no login', message);
     }
   };
-
-  const handleGoogleLogin = async () => {
-    Alert.alert(
-      'Google Login',
-      'O login com Google ainda não está configurado nesta versão.',
-      [{ text: 'OK' }]
-    );
-  };
-
   const navigateToForgotPassword = () => {
     Alert.alert(
       'Esqueceu a senha?',
-      'Entre em contato com o suporte para recuperar seu acesso.',
-      [{ text: 'OK' }]
+      'Entre em contato com o suporte Geotec para recuperar seu acesso.',
+      [{ text: 'CONFIRMAR' }]
     );
   };
 
   return (
     <>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
-      <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.content}>
-          <Image source={require('../../assets/logoEcampo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={[styles.title, { color: colors.text }]}>Bem-vindo ao eCampo</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Faça login com seu CPF e senha</Text>
+        <KeyboardAvoidingView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <View style={styles.content}>
+            <Image source={require('../../assets/logoEcampo.png')} style={styles.logo} resizeMode="contain" />
+            <Text style={[styles.title, { color: colors.text }]}>Bem-vindo ao e-Campo</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Faça login com seu CPF e Senha</Text>
 
-          <Input
-            label="CPF"
-            value={cpf}
-            onChangeText={handleCPFChange}
-            placeholder="000.000.000-00"
-            keyboardType="numeric"
-            maxLength={14}
-            autoCapitalize="none"
-            error={cpfError}
-          />
+            <Input
+              label="CPF"
+              value={cpf}
+              onChangeText={handleCPFChange}
+              placeholder="000.000.000-00"
+              keyboardType="numeric"
+              maxLength={14}
+              autoCapitalize="none"
+              error={cpfError}
+            />
 
-          <Input
-            label="Senha"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Digite sua senha"
-            secureTextEntry
-            error={passwordError}
-            
-          />
+            <Input
+              label="Senha"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Digite sua senha"
+              secureTextEntry
+              error={passwordError}
+              maxLength={30}
+              
+            />
 
-          <TouchableOpacity 
-            style={styles.forgotPassword}
-            onPress={navigateToForgotPassword}
-          >
-            <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
-          </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.forgotPassword}
+              onPress={navigateToForgotPassword}
+            >
+              <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.buttonText}>Entrar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.buttonText}>Entrar</Text>
+              )}
+            </TouchableOpacity>
+            <Text style={[styles.footerText]}>
+             © GEOTEC - 2026 Todos os direitos reservados.
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </>
   );
 };
@@ -157,17 +152,17 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     alignSelf: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: 10,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 100,
+    marginBottom: 30,
     textAlign: 'center',
   },
   forgotPassword: {
@@ -179,11 +174,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#4e73df',
-    borderRadius: 8,
+    backgroundColor: '#4CAF50',
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 16,
+    borderRadius: 8,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -193,40 +188,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  googleButton: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  googleButtonText: {
-    color: '#333',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ddd',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: '#666',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
   footerText: {
-    color: '#666',
-  },
-  footerLink: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
+    color: '#000000',
+    textAlign: 'center',
+    
+  }
+ 
 });
 
 export default LoginScreen;

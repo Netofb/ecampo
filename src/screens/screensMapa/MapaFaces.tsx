@@ -5,6 +5,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { faceService } from '../../services/api';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 
 type FeatureCollection = {
   type: 'FeatureCollection';
@@ -272,8 +273,9 @@ const MapaFaces: React.FC = () => {
           <Text style={{ fontSize: 24, color: colors.text }}>←</Text>
         </TouchableOpacity>
 
-        <View style={{ flex: 1, marginLeft: 8 }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>🏘️ Mapa de Faces</Text>
+        <View style={{ flex: 1, marginLeft: 8, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <FontAwesome5 name="user-friends" size={18} color="#2196F3" style={{ marginRight: 15 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}> Mapa de Faces</Text>
           {!!selectedLabel && <Text style={{ marginTop: 4, opacity: 0.8, color: colors.textSecondary }}>{selectedLabel}</Text>}
         </View>
 
@@ -282,7 +284,7 @@ const MapaFaces: React.FC = () => {
           style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={{ fontWeight: '800', color: colors.text }}>🔄</Text>}
+          {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={{ fontWeight: '800', color: colors.text }}><FontAwesome5 name="sync" size={18} color="#2196F3" style={{ marginRight: 8 }} /></Text>}
         </TouchableOpacity>
       </View>
 

@@ -21,6 +21,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { SyncService } from '../sync/SyncService';
+import SyncResultModal from '../components/SyncResultModal';
+
 
 const { width } = Dimensions.get('window');
 
@@ -67,8 +69,11 @@ const HomeScreen: React.FC = () => {
   const [cards, setCards] = useState<CardData[]>([]);
   const [syncStatus, setSyncStatus] = useState({ pending: 0, conflicts: 0, lastSync: null as string | null });
   const [syncing, setSyncing] = useState(false);
+  const [syncModalVisible, setSyncModalVisible] = useState(false);
+  const [syncModalData, setSyncModalData] = useState({ pushedSuccess: 0, pulled: 0, pushedConflicts: 0 });
 
-  // Itens do menu lateral com navegação
+
+    // Itens do menu lateral com navegação
   const menuItems: MenuItem[] = [
     { 
       id: 0, 
@@ -159,18 +164,22 @@ const HomeScreen: React.FC = () => {
       console.error('Erro ao carregar status de sync:', error);
     }
   };
-
+// Função para lidar com a sincronização e mostrar o modal de resultados 
   const handleSync = async () => {
     setSyncing(true);
     try {
       const result = await SyncService.sync();
-      Alert.alert(
-        'Sincronização concluída',
-        `Enviados: ${result.pushed.success}\nBaixados: ${result.pulled}\nConflitos: ${result.pushed.conflicts}`
-      );
+
+      setSyncModalData({
+        pushedSuccess: result.pushed.success,
+        pulled: result.pulled,
+        pushedConflicts: result.pushed.conflicts,
+      });
+      setSyncModalVisible(true);
+
       await loadSyncStatus();
     } catch (error: any) {
-      Alert.alert('Erro', error.message);
+      Alert.alert('Erro', error?.message ?? 'Falha na sincronização');
     } finally {
       setSyncing(false);
     }
@@ -444,6 +453,13 @@ const HomeScreen: React.FC = () => {
             <View style={styles.spacer} />
           </ScrollView>
         </View>
+        <SyncResultModal
+          visible={syncModalVisible}
+          onClose={() => setSyncModalVisible(false)}
+          pushedSuccess={syncModalData.pushedSuccess}
+          pulled={syncModalData.pulled}
+          pushedConflicts={syncModalData.pushedConflicts}
+        />
       </SafeAreaView>
     );
 };

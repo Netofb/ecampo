@@ -34,10 +34,10 @@ const SyncInitialScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Ionicons name="cloud-download-outline" size={80} color={colors.primary} />
-      <Text style={[styles.title, { color: colors.text }]}>Sincronização Inicial</Text>
+      <Ionicons name="sync-outline" size={80} color={colors.primary} />
+      <Text style={[styles.title, { color: colors.text }]}>Sincronização</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Baixe os dados mais recentes do servidor para começar a usar o app offline
+        Baixe os dados mais recentes do servidor para começar a usar o app offline.
       </Text>
 
       {loading ? (
@@ -59,7 +59,10 @@ const SyncInitialScreen: React.FC = () => {
         onPress={() => completeSync()}
         disabled={loading}
       >
-        <Text style={[styles.skipText, { color: colors.textSecondary }]}>Pular por enquanto</Text>
+        <Text style={[styles.skipText, { color: colors.primary }]}>Pular Sincronização
+          
+        </Text>
+        
       </TouchableOpacity>
     </View>
   );
@@ -104,9 +107,12 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     marginTop: 24,
+    fontSize: 20,
+    fontWeight: '600',
   },
   skipText: {
     fontSize: 14,
+    textDecorationLine: 'underline',
   },
 });
 

@@ -5,20 +5,36 @@ dotenv.config();
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+const connectionConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: isProduction ? { rejectUnauthorized: false } : false,
+    }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT) || 5432,
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME || 'ecampo',
+      ssl: isProduction ? { rejectUnauthorized: false } : false,
+    };
+
 const db = knex({
   client: 'pg',
-  connection: process.env.DATABASE_URL || {
-    host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT) || 5432,
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME || 'ecampo',
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
-  },
+  connection: connectionConfig,
   pool: {
-    min: 2,
-    max: 10
+    min: 1,
+    max: 10,
+    acquireTimeoutMillis: 30000,
+    idleTimeoutMillis: 600000,   // descarta conexão ociosa após 10 min
+    reapIntervalMillis: 1000,    // verifica conexões mortas a cada 1s
+    createRetryIntervalMillis: 200,
   },
 });
+
+// Valida conexão na inicialização e loga erros de pool
+db.raw('SELECT 1')
+  .then(() => console.log('✅ PostgreSQL conectado'))
+  .catch((err: Error) => console.error('❌ Falha na conexão inicial com PostgreSQL:', err.message));
 
 export default db;

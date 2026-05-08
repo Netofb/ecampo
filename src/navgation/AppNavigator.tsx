@@ -108,24 +108,6 @@ const AppNavigator: React.FC = () => {
           border: colors.border,
           notification: colors.danger,
         },
-        fonts: {
-          regular: {
-            fontFamily: 'System',
-            fontWeight: '400',
-          },
-          medium: {
-            fontFamily: 'System',
-            fontWeight: '500',
-          },
-          bold: {
-            fontFamily: 'System',
-            fontWeight: '700',
-          },
-          heavy: {
-            fontFamily: 'System',
-            fontWeight: '900',
-          },
-        },
       }}
     >
       <Stack.Navigator
@@ -147,12 +129,12 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen 
               name="Login" 
               component={LoginScreen}
-              options={{ title: 'Login - ecampo' }}
+              options={{ title: 'Login - e-Campo' }}
             />
             <Stack.Screen 
               name="Register" 
               component={RegisterScreen}
-              options={{ title: 'Cadastro - ecampo' }}
+              options={{ title: 'Cadastro - e-Campo' }}
             />
           </>
         ) : status === 'needs_sync' ? (
@@ -173,7 +155,7 @@ const AppNavigator: React.FC = () => {
               name="Home" 
               component={HomeScreen}
               options={{ 
-                title: 'eCampo - Inicio',
+                title: 'e-Campo - Inicio',
                 headerLeft: () => null, // Remove botão voltar na Home
               }}
             />
@@ -182,17 +164,26 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen 
               name="CadastroFace" 
               component={CadastroFace}
-              options={{ title: 'Cadastro de Face' }}
+              options={{ title: 'Cadastro de Face' , 
+              headerShown: false
+
+              }}
             />
             <Stack.Screen 
               name="CadastroQuarteirao" 
               component={CadastroQuarteirao}
-              options={{ title: 'Cadastro de Quarteirão' }}
+              options={{ title: 'Cadastro de Quarteirão', 
+              headerShown: false
+                
+               }}
             />
             <Stack.Screen 
               name="CadastroImovel" 
               component={CadastroImovel}
-              options={{ title: 'Cadastro de Imóvel' }}
+              options={{ title: 'Cadastro de Imóvel' ,
+              headerShown: false
+                
+              }}
             />
         
             
@@ -200,34 +191,52 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen 
               name="ProducaoInicio" 
               component={ProducaoInicio}
-              options={{ title: 'Iniciar Produção' }}
+              options={{ title: 'Iniciar Produção' , 
+              
+
+              }}
             />
             <Stack.Screen 
               name="ProducaoControle" 
               component={ProducaoControle}
-              options={{ title: 'Controle de Produção' }}
+              options={{ title: 'Controle de Produção' , 
+              
+
+              }}
             />
             <Stack.Screen 
               name="ProducaoHistorico" 
               component={ProducaoHistorico}
-              options={{ title: 'Histórico de Produção' }}
+              options={{ title: 'Histórico de Produção' , 
+             
+
+              }}
             />
             
             {/* TELAS DE RELATÓRIOS */}
             <Stack.Screen 
               name="RelatorioGeral" 
               component={RelatorioGeral}
-              options={{ title: 'Relatório Geral' }}
+              options={{ title: 'Relatório Geral' , 
+              
+
+              }}
             />
             <Stack.Screen 
               name="RelatorioFinanceiro" 
               component={RelatorioFinanceiro}
-              options={{ title: 'Relatório Financeiro' }}
+              options={{ title: 'Relatório Financeiro' , 
+              
+
+              }}
             />
             <Stack.Screen 
               name="ExportarDados" 
               component={ExportarDados}
-              options={{ title: 'Exportar Dados' }}
+              options={{ title: 'Exportar Dados' , 
+              
+
+              }}
             />
             
             {/* TELAS DE MAPAS */}

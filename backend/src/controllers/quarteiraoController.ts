@@ -1,21 +1,34 @@
 import { Request, Response } from 'express';
 import db from '../database';
 
+// Retry helper para erros de conexão terminada
+const withRetry = async <T>(fn: () => Promise<T>, retries = 2): Promise<T> => {
+  try {
+    return await fn();
+  } catch (err: any) {
+    const isConnErr = err.message?.includes('Connection terminated') ||
+      err.message?.includes('connection timeout') ||
+      err.code === 'ECONNRESET';
+    if (isConnErr && retries > 0) {
+      await new Promise(r => setTimeout(r, 300));
+      return withRetry(fn, retries - 1);
+    }
+    throw err;
+  }
+};
+
 // ===== QUARTEIRÕES =====
 export const listQuarteiroes = async (req: any, res: Response) => {
   try {
     const userId = req.userId;
-    
-    const quarteiroes = await db('tb_quarteiroes as q')
-      .leftJoin('tb_localidades as l', 'q.id_localidade', 'l.id_localidade')
-      .leftJoin('tb_zonas as z', 'q.id_zona', 'z.id_zona')
-      .where('q.id_usuario', userId)
-      .select(
-        'q.*',
-        'l.nome_localidade',
-        'z.nome_zona'
-      )
-      .orderBy('q.id_quadra', 'asc');
+    const quarteiroes = await withRetry(() =>
+      db('tb_quarteiroes as q')
+        .leftJoin('tb_localidades as l', 'q.id_localidade', 'l.id_localidade')
+        .leftJoin('tb_zonas as z', 'q.id_zona', 'z.id_zona')
+        .where('q.id_usuario', userId)
+        .select('q.*', 'l.nome_localidade', 'z.nome_zona')
+        .orderBy('q.id_quadra', 'asc')
+    );
     res.json(quarteiroes);
   } catch (error: any) {
     console.error('Erro ao listar quarteirões:', error.message);

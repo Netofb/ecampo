@@ -3,7 +3,7 @@ import { getDatabase } from '../storage/db';
 import { quarteiraoLocalRepo } from '../repos/quarteiraoLocalRepo';
 import { authService } from '../services/api';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.10:3333/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.118:3333/api';
 
 let syncInProgress = false;
 

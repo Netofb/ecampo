@@ -1,5 +1,5 @@
-// src/screens/CadastroQuarteirao.tsx - COM PAGINAÇÃO E BUSCA
-import React, { useState, useEffect } from 'react';
+// src/screens/CadastroQuarteirao.tsx - COM PAGINAÇÃO, BUSCA E MAPA
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,10 +15,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { quarteiraoService, localidadeService, zonaService } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import QuarteiraoMapWebView, { MapPolygonData, QuarteiraoMapHandle } from '../../components/QuarteiraoMapWebView';
 
 const { width } = Dimensions.get('window');
 
@@ -67,6 +68,12 @@ const CadastroQuarteirao: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [tabelaExiste, setTabelaExiste] = useState(true);
+
+  // Mapa
+  const mapRef = useRef<QuarteiraoMapHandle>(null);
+  const modalScrollRef = useRef<ScrollView>(null);
+  const [mapData, setMapData] = useState<MapPolygonData | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   // Filtra quarteirões por busca
   const quarteiroesFiltrados = quarteiroes.filter(quarteirao =>
@@ -147,10 +154,23 @@ const CadastroQuarteirao: React.FC = () => {
     carregarQuarteiroes();
   };
 
+  // Detectar localização e enviar para o mapa
+  const detectarLocalizacao = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão negada', 'Habilite a localização nas configurações do dispositivo.');
+      return;
+    }
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    mapRef.current?.setCenter(loc.coords.latitude, loc.coords.longitude, 17);
+  };
+
   // Função para abrir modal de cadastro
   const abrirModalCadastro = async () => {
     setEditando(false);
     setQuarteiraoEditando(null);
+    setMapData(null);
+    setMapReady(false);
     
     // Carrega localidades e zonas apenas quando abrir o modal
     if (localidades.length === 0 || zonas.length === 0) {
@@ -173,6 +193,10 @@ const CadastroQuarteirao: React.FC = () => {
   const abrirModalEdicao = async (quarteirao: Quarteirao) => {
     setEditando(true);
     setQuarteiraoEditando(quarteirao);
+    setMapReady(false);
+    // Restaura geojson salvo se existir
+    const savedGeojson = (quarteirao as any).geojson || null;
+    setMapData(savedGeojson ? { geojson: savedGeojson, centroid: { lat: 0, lng: 0 }, bounds: [[0,0],[0,0]], area_m2: 0 } : null);
     
     // Carrega localidades e zonas apenas quando abrir o modal
     if (localidades.length === 0 || zonas.length === 0) {
@@ -198,6 +222,22 @@ const CadastroQuarteirao: React.FC = () => {
       return;
     }
 
+    if (!mapData) {
+      Alert.alert(
+        '⚠️ Polígono não desenhado',
+        'Desenhe o polígono do quarteirão no mapa antes de salvar.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const geoPayload = {
+      geojson: mapData.geojson,
+      centroid_lat: mapData.centroid.lat,
+      centroid_lng: mapData.centroid.lng,
+      area_m2: mapData.area_m2,
+    };
+
     try {
       if (editando && quarteiraoEditando) {
         // Editar quarteirão existente
@@ -207,6 +247,7 @@ const CadastroQuarteirao: React.FC = () => {
           localidade_nome: formData.localidade,
           zona_nome: formData.zona,
           status: formData.status,
+          ...geoPayload,
         });
         Alert.alert('✅ Sucesso', 'Quarteirão atualizado com sucesso!');
       } else {
@@ -217,6 +258,7 @@ const CadastroQuarteirao: React.FC = () => {
           localidade_nome: formData.localidade,
           zona_nome: formData.zona,
           status: formData.status,
+          ...geoPayload,
         });
         Alert.alert('✅ Sucesso', 'Quarteirão cadastrado com sucesso!');
       }
@@ -242,7 +284,7 @@ const CadastroQuarteirao: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await quarteiraoService.delete(id);
+              await quarteiraoService.delete(parseInt(id));
               const novosQuarteiroes = quarteiroes.filter(q => q.id !== id);
               setQuarteiroes(novosQuarteiroes);
               Alert.alert('✅ Sucesso', 'Quarteirão excluído com sucesso!');
@@ -603,7 +645,32 @@ const CadastroQuarteirao: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalForm}>
+            <ScrollView ref={modalScrollRef} style={styles.modalForm} nestedScrollEnabled>
+              {/* Mapa */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Polígono no Mapa *</Text>
+                <QuarteiraoMapWebView
+                  ref={mapRef}
+                  initialPolygon={mapData?.geojson ?? null}
+                  onReady={() => setMapReady(true)}
+                  onPolygonChanged={(data) => setMapData(data)}
+                  parentScrollRef={modalScrollRef}
+                  height={300}
+                />
+                {/* Preview dos dados capturados */}
+                <View style={styles.mapPreview}>
+                  <Text style={styles.mapPreviewText}>
+                    {mapData
+                      ? `✅ Polígono capturado  |  Centro: ${mapData.centroid.lat.toFixed(5)}, ${mapData.centroid.lng.toFixed(5)}  |  Área: ${(mapData.area_m2 / 10000).toFixed(2)} ha`
+                      : '⚠️ Nenhum polígono desenhado'}
+                  </Text>
+                </View>
+                <TouchableOpacity style={styles.locationButton} onPress={detectarLocalizacao}>
+                  <Ionicons name="locate" size={16} color="#fff" />
+                  <Text style={styles.locationButtonText}>Detectar localização atual</Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Número do Quarteirão *</Text>
                 <TextInput
@@ -1294,6 +1361,39 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Mapa
+  mapPreview: {
+    marginTop: 6,
+    padding: 8,
+    backgroundColor: '#F0F4F0',
+    borderRadius: 6,
+  },
+  mapPreviewText: {
+    fontSize: 12,
+    color: '#444',
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: '#2196F3',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  clearButton: {
+    padding: 4,
+  },
+  closeButton: {
+    padding: 4,
   },
   // Picker styles
   pickerContainer: {
