@@ -3,12 +3,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const isProduction = process.env.NODE_ENV === 'production';
+const useSSL = process.env.DB_SSL === 'true';
 
 const connectionConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: isProduction ? { rejectUnauthorized: false } : false,
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
     }
   : {
       host: process.env.DB_HOST || 'localhost',
@@ -16,7 +16,7 @@ const connectionConfig = process.env.DATABASE_URL
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME || 'ecampo',
-      ssl: isProduction ? { rejectUnauthorized: false } : false,
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
     };
 
 const db = knex({
