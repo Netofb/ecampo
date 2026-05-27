@@ -1,10 +1,9 @@
-// API Service - Replaces Supabase
+
 import { Platform } from 'react-native';
 
-// URL da API com fallback para desenvolvimento
-// const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.126:3333/api';
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.17:3333/api';
-// Exportar para uso em telas de debug
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ecampo.onrender.com/api';
+
 export const getApiUrlForDisplay = () => API_BASE_URL;
 
 class AuthService {

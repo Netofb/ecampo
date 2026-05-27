@@ -25,7 +25,7 @@ interface Props {
   parentScrollRef?: React.RefObject<ScrollView>;
 }
 
-const DEFAULT_CENTER = { lat: -15.7801, lng: -47.9292 }; // Brasília
+const DEFAULT_CENTER = { lat: -8.3797, lng: -35.4508 }; // Amaraji-PE
 
 const buildHtml = (
   center: { lat: number; lng: number },
@@ -55,11 +55,7 @@ const buildHtml = (
 </head>
 <body>
 <div id="map"></div>
-<div id="btn-bar">
-  <button class="map-btn" onclick="detectLocation()">📍 Minha localização</button>
-  <button class="map-btn" onclick="fitPolygon()">🔍 Ajustar ao polígono</button>
-  <button class="map-btn danger" onclick="clearAll()">🗑️ Limpar</button>
-</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script>

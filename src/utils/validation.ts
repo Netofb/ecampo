@@ -1,13 +1,13 @@
-// src/utils/validation.ts - versão simplificada
+
 export const validateCPF = (cpf: string): string => {
   if (!cpf) return 'CPF é obrigatório';
   
   const cleanedCPF = cpf.replace(/\D/g, '');
   
-  // Verificação básica de formato
+ 
   if (cleanedCPF.length !== 11) return 'CPF deve ter 11 dígitos';
   
-  // Verifica CPFs inválidos conhecidos
+ 
   const invalidCPFs = [
     '00000000000', '11111111111', '22222222222',
     '33333333333', '44444444444', '55555555555',
@@ -17,7 +17,7 @@ export const validateCPF = (cpf: string): string => {
   
   if (invalidCPFs.includes(cleanedCPF)) return 'CPF inválido';
   
-  // Cálculo do primeiro dígito verificador
+ 
   let soma = 0;
   for (let i = 0; i < 9; i++) {
     soma += parseInt(cleanedCPF.charAt(i)) * (10 - i);
@@ -51,6 +51,3 @@ export const validateConfirmPassword = (password: string, confirmPassword: strin
   return '';
 };
 
-// Remova estas se não for usar mais
-// export const validateEmail = () => {};
-// export const validateName = () => {};

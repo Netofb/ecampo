@@ -179,9 +179,9 @@ function buildLeafletHtml(geojson: FeatureCollection) {
       try {
         const b = group.getBounds();
         if (b.isValid()) map.fitBounds(b.pad(0.2));
-        else map.setView([-8.05224, -34.928609], 13);
+        else map.setView([-8.3797, -35.4508], 13);
       } catch (e) {
-        map.setView([-8.05224, -34.928609], 13);
+        map.setView([-8.3797, -35.4508], 13);
       }
     }
 

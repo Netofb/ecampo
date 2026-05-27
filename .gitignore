@@ -47,10 +47,7 @@ yarn-error.*
 /android
 
 # Backend
-backend/node_modules/
-backend/dist/
-backend/.env
-backend/*.log
+backend/
 
 # Database
 *.sql
