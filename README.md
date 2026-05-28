@@ -1,219 +1,293 @@
-# 🌾 eCampo - Sistema de Gerenciamento de Quarteirões Agrícolas
+<p align="center">
+  <img src="./prints/logoEcampo.png" alt="Logo eCampo" width="180"/>
+</p>
 
-Sistema mobile desenvolvido em React Native para gerenciamento de quarteirões agrícolas, com backend em Node.js e banco de dados PostgreSQL.
+<h1 align="center">🌿 eCampo</h1>
 
-## 📱 Screenshots
-
-> Adicione screenshots do aplicativo aqui
-
-## ✨ Funcionalidades
-
-- 🔐 **Autenticação**: Login seguro com CPF e senha
-- 📊 **Gestão de Quarteirões**: CRUD completo de quarteirões
-- 🔍 **Busca e Filtros**: Busca por nome, localidade ou zona
-- 📄 **Paginação**: Visualização de 5, 10, 20 ou 50 itens por página
-- 🔄 **Sincronização**: Pull to refresh para atualizar dados
-- 👤 **Multi-usuário**: Cada usuário vê apenas seus quarteirões
-- 📍 **Localização**: Vinculação com localidades e zonas
-- 📈 **Produções**: Contagem de produções por quarteirão
-
-## 🛠️ Tecnologias
-
-### Frontend
-- React Native 0.76.6
-- TypeScript 5.3.3
-- React Navigation
-- AsyncStorage
-- Axios
-
-### Backend
-- Node.js v24.11.1
-- Express 4.21.2
-- TypeScript 5.7.3
-- Knex.js (Query Builder)
-- PostgreSQL
-- JWT (Autenticação)
-- bcryptjs (Hash de senhas)
-
-## 📋 Pré-requisitos
-
-- Node.js v24.11.1 ou superior
-- PostgreSQL 12 ou superior
-- Expo CLI
-- Android Studio ou Xcode (para emuladores)
-
-## 🚀 Instalação
-
-### 1. Clone o repositório
-
-```bash
-git clone https://github.com/seu-usuario/ecampo.git
-cd ecampo
-```
-
-### 2. Configure o Banco de Dados
-
-```sql
--- Criar banco de dados
-CREATE DATABASE ecampo;
-
--- Conectar ao banco
-\c ecampo
-
--- Importar estrutura do banco (se disponível)
--- ou criar as tabelas manualmente conforme documentação
-```
-
-### 3. Configure o Backend
-
-```bash
-cd backend
-
-# Instalar dependências
-npm install
-
-# Copiar arquivo de exemplo de variáveis de ambiente
-cp .env.example .env
-
-# Editar .env com suas configurações
-# DATABASE_URL=postgres://usuario:senha@localhost:5432/ecampo
-# JWT_SECRET=seu_secret_aqui
-# PORT=3000
-
-# Iniciar servidor de desenvolvimento
-npm run dev
-```
-
-O backend estará rodando em `http://localhost:3000`
-
-### 4. Configure o Frontend
-
-```bash
-# Voltar para raiz do projeto
-cd ..
-
-# Instalar dependências
-npm install
-
-# Atualizar IP do backend em src/services/api.ts
-# Trocar pelo IP da sua máquina local
-
-# Iniciar aplicação
-npm start
-
-# Ou para Android
-npm run android
-
-# Ou para iOS
-npm run ios
-```
-
-## Credenciais de Teste
-
-**Importante:** Configure as senhas dos usuários no banco de dados usando hash bcrypt.
-
-Para gerar hash de senha:
-```bash
-cd backend
-npm run hash-password sua_senha_aqui
-```
-
-Depois atualize no banco:
-```sql
-UPDATE usuarios SET senha = '$2a$10$hash_gerado' WHERE cpf_usuario = 'CPF_DO_USUARIO';
-```
-
-## 📖 Documentação
-
-Para documentação completa do projeto, incluindo:
-- Estrutura do banco de dados
-- Endpoints da API
-- Fluxo de autenticação
-- Arquitetura do sistema
-- Problemas conhecidos e soluções
-
-Consulte: [DOCUMENTACAO_COMPLETA.md](./DOCUMENTACAO_COMPLETA.md)
-
-## 🗂️ Estrutura do Projeto
-
-```
-ecampo/
-├── backend/                    # Backend Node.js
-│   ├── src/
-│   │   ├── controllers/       # Controladores da API
-│   │   ├── middleware/        # Middlewares (auth, etc)
-│   │   ├── routes/            # Rotas da API
-│   │   ├── utils/             # Utilitários
-│   │   ├── database.ts        # Configuração do banco
-│   │   └── server.ts          # Servidor Express
-│   ├── knexfile.ts            # Configuração Knex
-│   └── package.json
-├── src/                        # Frontend React Native
-│   ├── components/            # Componentes reutilizáveis
-│   ├── navigation/            # Navegação
-│   ├── screens/               # Telas do app
-│   ├── services/              # Serviços (API)
-│   └── utils/                 # Utilitários
-├── .gitignore
-├── package.json
-├── README.md
-└── DOCUMENTACAO_COMPLETA.md
-```
-
-## 🔧 Scripts Disponíveis
-
-### Frontend
-```bash
-npm start          # Inicia o Metro bundler
-npm run android    # Roda no Android
-npm run ios        # Roda no iOS
-npm run web        # Roda no navegador
-```
-
-### Backend
-```bash
-npm run dev        # Inicia servidor em modo desenvolvimento
-npm run build      # Compila TypeScript
-npm start          # Inicia servidor em produção
-```
-
-## 🐛 Problemas Conhecidos
-
-### Erro de Chave Duplicada ao Criar Quarteirão
-Se encontrar erro de chave duplicada, execute no PostgreSQL:
-```sql
-SELECT setval('tb_quadras_id_quadra_seq', (SELECT MAX(id_quadra) FROM tb_quarteiroes));
-```
-
-### Erro de Conexão com Backend
-1. Verifique se o backend está rodando
-2. Verifique o IP correto em `src/services/api.ts`
-3. Verifique firewall/antivírus
-
-Para mais soluções, consulte a [documentação completa](./DOCUMENTACAO_COMPLETA.md).
-
-## 🤝 Contribuindo
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
-## 👥 Autores
-
-- Seu Nome - [@seu-usuario](https://github.com/seu-usuario)
-
-## 🙏 Agradecimentos
-
-- Equipe de desenvolvimento
-- Comunidade React Native
-- Contribuidores do projeto
+<p align="center">
+  <strong>Gestão inteligente para operações de campo</strong><br/>
+  Mobilidade, organização territorial, visualização geográfica e controle operacional em um só app.
+</p>
 
 ---
 
-**Desenvolvido com ❤️ para o agronegócio brasileiro**
+# 📌 Sobre o Projeto
+
+O **eCampo** é uma solução mobile desenvolvida para apoiar operações de campo com mais organização, mobilidade e inteligência geográfica.
+
+A plataforma foi pensada para facilitar o dia a dia de equipes que precisam **consultar, cadastrar, visualizar e acompanhar informações territoriais e operacionais diretamente no dispositivo móvel**, oferecendo uma experiência prática, moderna e eficiente.
+
+---
+
+# 🚀 Proposta da Solução
+
+O eCampo foi criado para transformar processos de campo em uma experiência digital mais organizada, visual e acessível.
+
+Com ele, é possível:
+
+- 📍 visualizar informações geográficas em mapa
+- 🧭 organizar áreas por quarteirões, faces e imóveis
+- 📝 registrar dados operacionais com agilidade
+- 📊 acompanhar informações de forma estruturada
+- 📂 centralizar dados em um ambiente digital
+- 📱 utilizar o sistema em uma interface voltada ao uso mobile
+
+---
+
+# ✨ Principais Destaques
+
+## ✅ Interface Mobile
+O sistema foi projetado para uso em dispositivos móveis, com navegação intuitiva e acesso rápido às principais funcionalidades.
+
+## ✅ Organização Territorial
+A estrutura do projeto permite organizar dados por:
+- quarteirões
+- faces
+- imóveis
+- localidades
+- zonas
+
+## ✅ Visualização em Mapa
+O app conta com módulos visuais que ajudam na leitura espacial das informações e no entendimento do território.
+
+## ✅ Cadastro Estruturado
+As informações são registradas de forma organizada, com fluxo prático e adaptado à operação de campo.
+
+## ✅ Visão Operacional
+O sistema centraliza os dados e permite melhor acompanhamento das informações registradas.
+
+---
+
+# 🧩 Funcionalidades do App
+
+## 🔐 Autenticação e Acesso
+O aplicativo possui área de login para identificação do usuário e acesso ao ambiente operacional.
+
+**Destaques:**
+- login de usuário
+- ambiente personalizado
+- acesso organizado às funcionalidades do sistema
+
+---
+
+## 🏠 Dashboard Inicial
+A tela inicial oferece uma visão clara das principais áreas do sistema, facilitando o acesso rápido às funções mais utilizadas.
+
+**Destaques:**
+- navegação simples
+- atalhos rápidos
+- visão geral do ambiente
+- acesso centralizado aos módulos
+
+---
+
+## 🗺️ Módulo de Mapas
+A visualização geográfica é um dos grandes diferenciais do eCampo, permitindo um entendimento mais visual e estratégico da área de atuação.
+
+**Destaques:**
+- exibição de registros em mapa
+- apoio visual à operação
+- melhor interpretação espacial dos dados
+- leitura mais intuitiva do território
+
+---
+
+## 🧱 Cadastro de Quarteirões
+Permite registrar e organizar quarteirões dentro da estrutura territorial da operação.
+
+**Destaques:**
+- cadastro por nome e número
+- vínculo com localidade e zona
+- observações complementares
+- associação com dados geográficos
+
+---
+
+## ↔️ Cadastro de Faces
+As faces complementam a organização do quarteirão, trazendo mais detalhamento da área cadastrada.
+
+**Destaques:**
+- vínculo com quarteirão
+- orientação e informações adicionais
+- organização territorial mais precisa
+
+---
+
+## 🏘️ Cadastro de Imóveis
+O sistema também permite cadastrar imóveis associados às áreas registradas.
+
+**Destaques:**
+- vínculo com quarteirão e face
+- classificação do imóvel
+- registro de informações complementares
+- apoio ao controle territorial
+
+---
+
+## 📍 Gestão de Localidades
+As localidades ajudam a estruturar melhor os dados e facilitam a segmentação das informações dentro do sistema.
+
+**Destaques:**
+- organização por localidades
+- melhor filtro de dados
+- apoio à navegação e consulta
+
+---
+
+## 📈 Relatórios e Acompanhamento
+O projeto conta com telas voltadas à visualização consolidada e acompanhamento das informações registradas.
+
+**Destaques:**
+- visão geral dos dados
+- acompanhamento operacional
+- apoio à gestão e análise
+
+---
+
+## 🌾 Controle de Produção
+O sistema contempla também uma estrutura para acompanhamento de informações de produção e histórico operacional.
+
+**Destaques:**
+- controle de informações complementares
+- histórico operacional
+- acompanhamento evolutivo dos registros
+
+---
+
+# 📸 Demonstração do App
+
+> **Substitua os blocos abaixo pelos prints reais das telas do sistema.**  
+> Você pode manter essa estrutura e só trocar os caminhos das imagens.
+
+---
+
+## 🔑 Tela de Login
+
+<p align="center">
+  <img src="./screenshots/login.png" alt="Tela de Login" width="280"/>
+</p>
+
+<p align="center">
+  <em>Espaço para print da tela de login do aplicativo.</em>
+</p>
+
+---
+
+## 🏠 Tela Inicial / Dashboard
+
+<p align="center">
+  <img src="./screenshots/home.png" alt="Tela Inicial" width="280"/>
+</p>
+
+<p align="center">
+  <em>Espaço para print da tela inicial com navegação principal.</em>
+</p>
+
+---
+
+## 🗺️ Tela de Mapas
+
+<p align="center">
+  <img src="./screenshots/mapa.png" alt="Tela de Mapa" width="280"/>
+</p>
+
+<p align="center">
+  <em>Espaço para print da visualização geográfica em mapa.</em>
+</p>
+
+---
+
+## 🧱 Tela de Cadastro de Quarteirão
+
+<p align="center">
+  <img src="./screenshots/cadastro-quarteirao.png" alt="Cadastro de Quarteirão" width="280"/>
+</p>
+
+<p align="center">
+  <em>Espaço para print da tela de cadastro de quarteirão.</em>
+</p>
+
+---
+
+## ↔️ Tela de Cadastro de Face
+
+<p align="center">
+  <img src="./screenshots/cadastro-face.png" alt="Cadastro de Face" width="280"/>
+</p>
+
+<p align="center">
+  <em>Espaço para print da tela de cadastro de face.</em>
+</p>
+
+---
+
+## Video de funcionamento
+
+<p align="center">
+  <img src="./screenshots/ecampo.mp4g" width="280"/>
+</p>
+
+<p align="center">
+  <em>Espaço para print da tela de cadastro de imóvel.</em>
+</p>
+
+---
+
+
+# 🧠 Diferenciais do Projeto
+
+## 📱 Mobilidade
+O eCampo aproxima a tecnologia da rotina operacional, levando a gestão para a palma da mão.
+
+## 🗺️ Visão Geográfica
+A presença do mapa fortalece a análise espacial e melhora a compreensão do território.
+
+## 🧱 Estrutura Organizada
+A divisão por quarteirões, faces, imóveis, localidades e zonas traz mais clareza ao processo.
+
+## ⚡ Agilidade Operacional
+As telas foram pensadas para oferecer rapidez no acesso às informações e praticidade na navegação.
+
+## 📊 Apoio à Gestão
+A organização e consolidação dos dados ajudam na análise e no acompanhamento das atividades.
+
+---
+
+# 🎯 Benefícios da Solução
+
+- ✅ mais organização das informações
+- ✅ mais controle operacional
+- ✅ melhor leitura territorial
+- ✅ mais agilidade para equipes em campo
+- ✅ maior visibilidade dos dados
+- ✅ modernização de processos operacionais
+
+---
+
+# 🏆 Aplicações do Projeto
+
+O eCampo pode ser aplicado em cenários que demandam:
+
+- gestão territorial
+- controle de campo
+- acompanhamento de equipes externas
+- coleta estruturada de dados
+- visualização geográfica
+- organização de informações operacionais
+
+---
+
+# 📌 Resumo Executivo
+
+O **eCampo** é uma solução mobile voltada à gestão de campo, unindo **cadastro estruturado, organização territorial, visualização em mapa e acompanhamento operacional** em uma experiência moderna e prática.
+
+O projeto foi concebido para apoiar operações que exigem mobilidade, clareza visual e controle das informações, oferecendo uma base sólida para evoluir processos e ampliar a eficiência das equipes.
+
+---
+
+# 🌿 eCampo
+
+<p align="center">
+  <strong>Tecnologia aplicada à operação em campo.</strong><br/>
+  <strong>Mais mobilidade, mais organização, mais visão territorial.</strong>
+</p>
