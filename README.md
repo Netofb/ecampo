@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./prints/logoEcampo.png" alt="Logo eCampo" width="180"/>
+  <img src="./screenshots/logoEcampo.png" alt="Logo eCampo" width="180"/>
 </p>
 
 <h1 align="center">🌿 eCampo</h1>
@@ -167,9 +167,7 @@ O sistema contempla também uma estrutura para acompanhamento de informações d
   <img src="./screenshots/login.png" alt="Tela de Login" width="280"/>
 </p>
 
-<p align="center">
-  <em>Espaço para print da tela de login do aplicativo.</em>
-</p>
+
 
 ---
 
@@ -179,9 +177,7 @@ O sistema contempla também uma estrutura para acompanhamento de informações d
   <img src="./screenshots/home.png" alt="Tela Inicial" width="280"/>
 </p>
 
-<p align="center">
-  <em>Espaço para print da tela inicial com navegação principal.</em>
-</p>
+
 
 ---
 
@@ -191,9 +187,7 @@ O sistema contempla também uma estrutura para acompanhamento de informações d
   <img src="./screenshots/mapa.png" alt="Tela de Mapa" width="280"/>
 </p>
 
-<p align="center">
-  <em>Espaço para print da visualização geográfica em mapa.</em>
-</p>
+
 
 ---
 
@@ -203,9 +197,7 @@ O sistema contempla também uma estrutura para acompanhamento de informações d
   <img src="./screenshots/cadastro-quarteirao.png" alt="Cadastro de Quarteirão" width="280"/>
 </p>
 
-<p align="center">
-  <em>Espaço para print da tela de cadastro de quarteirão.</em>
-</p>
+
 
 ---
 
@@ -215,21 +207,23 @@ O sistema contempla também uma estrutura para acompanhamento de informações d
   <img src="./screenshots/cadastro-face.png" alt="Cadastro de Face" width="280"/>
 </p>
 
-<p align="center">
-  <em>Espaço para print da tela de cadastro de face.</em>
-</p>
+
 
 ---
 
 ## Video de funcionamento
 
 <p align="center">
-  <img src="./screenshots/ecampo.mp4g" width="280"/>
+  <a href="./screenshots/ecampo.mp4">
+    <img src="./screenshots/capa-video.png" alt="Demonstração do eCampo" width="280"/>
+  </a>
 </p>
 
 <p align="center">
-  <em>Espaço para print da tela de cadastro de imóvel.</em>
+  ▶️ Clique na imagem para assistir à demonstração do projeto
 </p>
+
+
 
 ---
 
