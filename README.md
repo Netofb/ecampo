@@ -156,8 +156,6 @@ O sistema contempla também uma estrutura para acompanhamento de informações d
 
 # 📸 Demonstração do App
 
-> **Substitua os blocos abaixo pelos prints reais das telas do sistema.**  
-> Você pode manter essa estrutura e só trocar os caminhos das imagens.
 
 ---
 
