@@ -1,9 +1,11 @@
 import NetInfo from '@react-native-community/netinfo';
 import { getDatabase } from '../storage/db';
 import { quarteiraoLocalRepo } from '../repos/quarteiraoLocalRepo';
-import { authService } from '../services/api';
+import { authService, getApiUrlForDisplay } from '../services/api';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+// Mantém a sincronização na mesma API configurada para os demais serviços,
+// inclusive quando a variável de ambiente não foi definida.
+const API_BASE_URL = getApiUrlForDisplay();
 
 let syncInProgress = false;
 

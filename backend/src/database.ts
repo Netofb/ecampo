@@ -23,11 +23,11 @@ const db = knex({
   client: 'pg',
   connection: connectionConfig,
   pool: {
-    min: 1,
-    max: 10,
-    acquireTimeoutMillis: 30000,
-    idleTimeoutMillis: 600000,   // descarta conexão ociosa após 10 min
-    reapIntervalMillis: 1000,    // verifica conexões mortas a cada 1s
+    min: 0,
+    max: 5,
+    acquireTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    reapIntervalMillis: 1000,
     createRetryIntervalMillis: 200,
   },
 });

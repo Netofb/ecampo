@@ -121,7 +121,7 @@ export const quarteiraoLocalRepo = {
         tx.executeSql(
           `INSERT INTO sync_outbox (op_id, entity, op, local_id, server_id, base_version, payload, created_at)
            VALUES (?, 'quarteirao', 'update', ?, ?, ?, ?, ?)`,
-          [generateUUID(), localId, existing.server_id, existing.version, JSON.stringify(data), now]
+          [generateUUID(), localId, existing.server_id ?? null, existing.version, JSON.stringify(data), now]
         );
       }, reject, resolve);
     });

@@ -559,6 +559,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: '#333',
   },
+  clearButton: {
+    padding: 6,
+  },
 
   controls: {
     flexDirection: 'row',
@@ -765,6 +768,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  closeButton: {
+    padding: 4,
   },
 
   modalForm: {
