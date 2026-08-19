@@ -30,7 +30,7 @@ interface Imovel {
   status: 'Ativo' | 'Inativo';
 }
 
-const TIPOS_IMOVEL = ['R-Residência', 'C-Comércio', 'Outro'];
+const TIPOS_IMOVEL = ['R-Residência', 'C-Comércio', 'T-Terreno baldio', 'Outro'];
 
 const CadastroImovel: React.FC = () => {
   const navigation = useNavigation();

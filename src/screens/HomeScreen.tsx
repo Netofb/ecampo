@@ -120,9 +120,7 @@ const HomeScreen: React.FC = () => {
       icon: 'map-outline', 
       hasDropdown: true,
       dropdownItems: [
-        { id: 41, label: 'Mapa de Quarteirões', screen: 'MapaQuarteiroes', icon: 'location-outline' },
-        { id: 42, label: 'Mapa de Faces', screen: 'MapaFaces', icon: 'grid-outline' },
-        { id: 43, label: 'Mapa de Imóveis', screen: 'MapaImoveis', icon: 'business-outline' },
+        { id: 41, label: 'Meu mapa de campo', screen: 'MapaQuarteiroes', icon: 'map-outline' },
       ]
     },
     // Itens SEM dropdown (vão direto para uma tela)

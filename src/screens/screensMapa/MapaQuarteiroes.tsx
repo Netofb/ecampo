@@ -1,320 +1,59 @@
-import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, Text, TouchableOpacity, View, Linking } from 'react-native';
-import { WebView } from 'react-native-webview';
-import type { WebViewMessageEvent } from 'react-native-webview';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
-import { authService, getApiUrlForDisplay } from '../../services/api';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { authService, faceService, getApiUrlForDisplay, imovelService, localidadeService, quarteiraoService, zonaService } from '../../services/api';
 
-const getApiUrl = getApiUrlForDisplay;
+type FeatureCollection = { type: 'FeatureCollection'; features: any[] };
+type LayerKey = 'municipal' | 'zonas' | 'localidades' | 'quarteiroes' | 'faces' | 'imoveis';
+type Stats = { zonas: number; localidades: number; quarteiroes: number; faces: number; imoveis: number; total: number };
+const EMPTY_GEO: FeatureCollection = { type: 'FeatureCollection', features: [] };
+const LAYERS: { key: LayerKey; label: string; icon: string }[] = [
+  { key: 'municipal', label: 'Malha municipal', icon: 'map' }, { key: 'zonas', label: 'Zonas', icon: 'draw-polygon' },
+  { key: 'localidades', label: 'Localidades', icon: 'city' }, { key: 'quarteiroes', label: 'Quarteirões', icon: 'th' },
+  { key: 'faces', label: 'Faces', icon: 'road' }, { key: 'imoveis', label: 'Imóveis', icon: 'home' },
+];
+const defaultStats: Stats = { zonas: 0, localidades: 0, quarteiroes: 0, faces: 0, imoveis: 0, total: 0 };
 
-type FeatureCollection = {
-  type: 'FeatureCollection';
-  features: any[];
-};
-
-type MapMessage =
-  | { type: 'ready' }
-  | { type: 'feature_click'; id?: string | number; nome?: string; lat?: number; lng?: number }
-  | { type: 'open_maps'; lat: number; lng: number }
-  | { type: 'open_streetview'; lat: number; lng: number }
-  | { type: 'error'; message: string };
-
-function openGoogleMaps(lat: number, lng: number) {
-  return Linking.openURL(`https://www.google.com/maps?q=${lat},${lng}`);
-}
-
-function openStreetView(lat: number, lng: number) {
-  return Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
-}
-
-async function fetchGeoJson(): Promise<FeatureCollection> {
-  const response = await fetch(`${getApiUrl()}/quarteiroes/map`, {
-    headers: authService.getAuthHeaders(),
-  });
-  if (!response.ok) throw new Error('Erro ao carregar mapa');
-  return await response.json();
-}
-
-function safeJsonForHtml(value: unknown) {
-  return JSON.stringify(value).replace(/</g, '\\u003c');
-}
-
-function buildLeafletHtml(geojson: FeatureCollection) {
-  const geoStr = safeJsonForHtml(geojson);
-
+function safeJson(value: unknown) { return JSON.stringify(value).replace(/</g, '\\u003c'); }
+function buildMapHtml(layers: Record<LayerKey, FeatureCollection>) {
   return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-  <style>
-    html, body { height: 100%; margin: 0; padding: 0; background: #fff; }
-    #map { height: 100%; width: 100%; }
-    .leaflet-popup-content { margin: 10px 12px; }
-    .title { font-weight: 800; margin-bottom: 6px; }
-    .sub { opacity: 0.8; margin-bottom: 10px; }
-    .btnRow { display:flex; gap:8px; flex-wrap: wrap; }
-    .btn {
-      padding: 8px 10px;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      font-weight: 700;
-      background: #fff;
-      cursor: pointer;
-      user-select: none;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script>
-    const RN = window.ReactNativeWebView;
-    function post(msg) {
-      try { RN && RN.postMessage(JSON.stringify(msg)); } catch (e) {}
-    }
-
-    const geojson = ${geoStr};
-    const map = L.map('map', { zoomControl: true, preferCanvas: true });
-
-    const baseOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 20,
-      attribution: '&copy; OpenStreetMap'
-    });
-
-    baseOSM.addTo(map);
-
-    const layerPolygons = L.layerGroup().addTo(map);
-    const layerMarkers = L.layerGroup().addTo(map);
-
-    function pickLatLngFromFeature(f) {
-      if (!f || !f.geometry) return null;
-      const g = f.geometry;
-      if (g.type === "Point" && Array.isArray(g.coordinates)) {
-        const lng = g.coordinates[0], lat = g.coordinates[1];
-        if (typeof lat === "number" && typeof lng === "number") return { lat, lng };
-      }
-      if (g.type === "Polygon" && g.coordinates?.[0]?.[0]) {
-        const p = g.coordinates[0][0];
-        return { lat: p[1], lng: p[0] };
-      }
-      return null;
-    }
-
-    function styleFeature(f) {
-      const color = (f.properties && f.properties.color) ? f.properties.color : "#1e88e5";
-      return { color, weight: 3, fillColor: color, fillOpacity: 0.35 };
-    }
-
-    function makePopupHtml(f) {
-      const id = f.properties?.id ?? f.id ?? "";
-      const nome = f.properties?.nome ?? "";
-      const ll = pickLatLngFromFeature(f);
-      const lat = ll ? ll.lat : null;
-      const lng = ll ? ll.lng : null;
-
-      return \`
-        <div class="title">📍 \${nome}</div>
-        <div class="sub">Quarteirão #\${id}</div>
-        <div class="btnRow">
-          <div class="btn" onclick="window.__openMaps(\${lat}, \${lng})">🗺️ Google Maps</div>
-          <div class="btn" onclick="window.__openStreet(\${lat}, \${lng})">🌍 Street View</div>
-        </div>
-      \`;
-    }
-
-    window.__openMaps = (lat, lng) => {
-      if (typeof lat !== "number" || typeof lng !== "number") return;
-      post({ type: "open_maps", lat, lng });
-    };
-
-    window.__openStreet = (lat, lng) => {
-      if (typeof lat !== "number" || typeof lng !== "number") return;
-      post({ type: "open_streetview", lat, lng });
-    };
-
-    function addGeoJson(fc) {
-      layerPolygons.clearLayers();
-      layerMarkers.clearLayers();
-
-      const polygonLayer = L.geoJSON(fc, {
-        filter: (f) => f?.geometry?.type === "Polygon" || f?.geometry?.type === "MultiPolygon",
-        style: styleFeature,
-        onEachFeature: (f, layer) => {
-          layer.on("click", () => {
-            const ll = pickLatLngFromFeature(f);
-            post({
-              type: "feature_click",
-              id: f.properties?.id ?? f.id,
-              nome: f.properties?.nome,
-              lat: ll?.lat,
-              lng: ll?.lng
-            });
-          });
-          layer.bindPopup(makePopupHtml(f));
-        }
-      }).addTo(layerPolygons);
-
-      const pointLayer = L.geoJSON(fc, {
-        filter: (f) => f?.geometry?.type === "Point",
-        pointToLayer: (f, latlng) => L.marker(latlng),
-        onEachFeature: (f, layer) => {
-          layer.on("click", () => {
-            post({
-              type: "feature_click",
-              id: f.properties?.id ?? f.id,
-              nome: f.properties?.nome,
-              lat: layer.getLatLng().lat,
-              lng: layer.getLatLng().lng
-            });
-          });
-          layer.bindPopup(makePopupHtml(f));
-        }
-      }).addTo(layerMarkers);
-
-      const group = L.featureGroup([polygonLayer, pointLayer]);
-      try {
-        const b = group.getBounds();
-        if (b.isValid()) map.fitBounds(b.pad(0.2));
-        else map.setView([-8.3797, -35.4508], 13);
-      } catch (e) {
-        map.setView([-8.3797, -35.4508], 13);
-      }
-    }
-
-    try {
-      addGeoJson(geojson);
-      post({ type: "ready" });
-    } catch (e) {
-      post({ type: "error", message: (e && e.message) ? e.message : "Erro ao renderizar GeoJSON" });
-    }
-  </script>
-</body>
-</html>`;
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;width:100%;margin:0;padding:0}.title{font-weight:800;margin-bottom:5px}.sub{opacity:.75}.legend{background:rgba(22,22,22,.92);color:#ddd;padding:10px;border-radius:6px;line-height:20px;font:12px Arial}.legend b{display:block;color:#fff;margin-bottom:4px}.swatch{display:inline-block;width:20px;height:3px;margin-right:6px;vertical-align:middle}.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin:0 10px 0 4px;vertical-align:-1px}</style></head>
+<body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+const RN=window.ReactNativeWebView;
+const data=${safeJson(layers)};
+const map=L.map('map',{zoomControl:true,preferCanvas:true}).setView([-8.3797,-35.4508],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap'}).addTo(map);
+const groups={};
+function post(message){try{if(RN)RN.postMessage(JSON.stringify(message));}catch(error){}}
+function point(feature){const coordinates=feature.geometry&&feature.geometry.coordinates;if(feature.geometry?.type==='Point'&&Array.isArray(coordinates))return{lat:coordinates[1],lng:coordinates[0]};if(feature.geometry?.type==='Polygon'&&coordinates?.[0]?.[0])return{lat:coordinates[0][0][1],lng:coordinates[0][0][0]};return null;}
+function popup(feature){const properties=feature.properties||{};return '<div class="title">'+(properties.title||properties.nome||properties.name||'Registro')+'</div><div class="sub">Tipo: '+(properties.tipo||'Outro')+'</div><div class="sub">'+(properties.subtitle||'')+'</div>';}
+function createLayer(key){const collection=data[key]||{features:[]};if(key==='municipal')return L.layerGroup();return L.geoJSON(collection,{style:feature=>({color:feature.properties?.color||'#2f80ed',weight:3,fillColor:feature.properties?.color||'#2f80ed',fillOpacity:.3}),pointToLayer:(feature,latlng)=>L.circleMarker(latlng,{radius:8,fillColor:feature.properties?.color||'#2f80ed',color:'#fff',weight:2,fillOpacity:.9}),onEachFeature:(feature,item)=>{item.bindPopup(popup(feature));item.on('click',()=>{const location=point(feature);post({type:'feature_click',label:feature.properties?.title||feature.properties?.nome||feature.properties?.name||'Registro',lat:location?.lat,lng:location?.lng});});}});}
+Object.keys(data).forEach(key=>{groups[key]=createLayer(key);groups[key].addTo(map);});
+const legend=L.control({position:'bottomright'});legend.onAdd=()=>{const div=L.DomUtil.create('div','legend');div.innerHTML='<b>LEGENDA</b><div><span class="swatch" style="background:#606060"></span>Malha municipal</div><div><span class="swatch" style="background:#7b1fa2"></span>Zona</div><div><span class="swatch" style="background:#00897b"></span>Localidade</div><div><span class="swatch" style="background:#2f80ed"></span>Quarteirão</div><div><span class="swatch" style="background:#f39c12"></span>Face</div><div><span class="dot" style="background:#2f80ed"></span>R-Residência</div><div><span class="dot" style="background:#e67e22"></span>C-Comércio</div><div><span class="dot" style="background:#27ae60"></span>T-Terreno baldio</div><div><span class="dot" style="background:#8e44ad"></span>Outro</div>';return div;};legend.addTo(map);
+window.toggleLayer=key=>{if(!groups[key])return;if(map.hasLayer(groups[key]))map.removeLayer(groups[key]);else groups[key].addTo(map);};
+try{const bounds=L.featureGroup(Object.values(groups)).getBounds();if(bounds.isValid())map.fitBounds(bounds.pad(.2));}catch(error){}
+post({type:'ready'});
+</script></body></html>`;
 }
+function makePointFeature(lat: unknown, lng: unknown, properties: any) { const latitude=Number(lat); const longitude=Number(lng); if(!Number.isFinite(latitude)||!Number.isFinite(longitude)) return null; return { type:'Feature', geometry:{type:'Point',coordinates:[longitude,latitude]}, properties }; }
+function groupedFeatures(rows: any[], nameKey: string, latKey: string, lngKey: string, color: string) { const groups=new Map<string,{lat:number;lng:number;count:number}>(); rows.forEach(row=>{const name=row[nameKey]||'Sem nome';const lat=Number(row[latKey]);const lng=Number(row[lngKey]);if(!Number.isFinite(lat)||!Number.isFinite(lng))return;const old=groups.get(name)||{lat:0,lng:0,count:0};groups.set(name,{lat:old.lat+lat,lng:old.lng+lng,count:old.count+1});});return Array.from(groups,([name,value])=>makePointFeature(value.lat/value.count,value.lng/value.count,{name,title:name,subtitle:`${value.count} quarteirão(ões)`,color})).filter(Boolean); }
+function groupedPolygons(mapData: FeatureCollection, groupKey: 'zona' | 'localidade', color: string) { return mapData.features.filter(feature=>feature.geometry?.type==='Polygon'||feature.geometry?.type==='MultiPolygon').map(feature=>{const name=feature.properties?.[groupKey]||'Sem nome';return {...feature,properties:{...feature.properties,title:name,subtitle:groupKey==='zona'?'Zona':'Localidade',color}}}); }
 
 const MapaQuarteiroes: React.FC = () => {
-  const navigation = useNavigation();
-  const { colors, isDark } = useTheme();
-  const webRef = useRef<WebView>(null);
-  const [loading, setLoading] = useState(true);
-  const [geo, setGeo] = useState<FeatureCollection | null>(null);
-  const [selectedLabel, setSelectedLabel] = useState<string>('');
-
-  const html = useMemo(() => {
-    if (!geo) return null;
-    return buildLeafletHtml(geo);
-  }, [geo]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setSelectedLabel('');
-    try {
-      const data = await fetchGeoJson();
-      setGeo(data);
-    } catch (e: any) {
-      Alert.alert('Mapa', e?.message ?? 'Falha ao carregar GeoJSON.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const onMessage = useCallback(async (ev: WebViewMessageEvent) => {
-    let msg: MapMessage | null = null;
-    try {
-      msg = JSON.parse(ev.nativeEvent.data);
-    } catch {
-      return;
-    }
-
-    if (!msg) return;
-
-    if (msg.type === 'error') {
-      Alert.alert('Mapa', msg.message);
-      return;
-    }
-
-    if (msg.type === 'feature_click') {
-      const label = `Selecionado: ${msg.nome ?? msg.id ?? ''}`;
-      setSelectedLabel(label);
-      return;
-    }
-
-    if (msg.type === 'open_maps') {
-      await openGoogleMaps(msg.lat, msg.lng);
-      return;
-    }
-
-    if (msg.type === 'open_streetview') {
-      await openStreetView(msg.lat, msg.lng);
-      return;
-    }
-  }, []);
-
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'space-between' }}>
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: colors.card,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        }}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-          <Text style={{ fontSize: 24, color: colors.text }}>←</Text>
-        </TouchableOpacity>
-
-        <View style={{ flex: 1, marginLeft: 8 , display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-          <FontAwesome5 name="map-marker-alt" size={18} color="#2196F3" style={{ marginRight: 15 }} />
-          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}> Mapa de Quarteirões</Text>
-          {!!selectedLabel && <Text style={{ marginTop: 4, opacity: 0.8, color: colors.textSecondary }}>{selectedLabel}</Text>}
-        </View>
-
-        <TouchableOpacity
-          onPress={load}
-          style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator size="small" color={colors.primary} />
-           : 
-           <Text style={{ fontWeight: '800', color: colors.text }}><FontAwesome5 name="sync" size={18} color="#2196F3" style={{ marginRight: 8 }} /></Text>}
-        </TouchableOpacity>
-      </View>
-
-      <View style={{ flex: 1 }}>
-        {!html ? (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={{ marginTop: 12, color: colors.textSecondary }}>Carregando mapa...</Text>
-          </View>
-        ) : (
-          <WebView
-            ref={webRef}
-            originWhitelist={['*']}
-            source={{ html }}
-            javaScriptEnabled
-            domStorageEnabled
-            mixedContentMode="always"
-            onMessage={onMessage}
-            setSupportMultipleWindows={false}
-            allowsBackForwardNavigationGestures
-          />
-        )}
-      </View>
-    </SafeAreaView>
-  );
+  const navigation=useNavigation(); const { colors }=useTheme(); const webRef=useRef<WebView>(null);
+  const [loading,setLoading]=useState(true); const [enabledLayers,setEnabledLayers]=useState<Record<LayerKey,boolean>>({municipal:true,zonas:true,localidades:true,quarteiroes:true,faces:true,imoveis:true}); const [selectedLabel,setSelectedLabel]=useState(''); const [stats,setStats]=useState(defaultStats);
+  const [layers,setLayers]=useState<Record<LayerKey,FeatureCollection>>({municipal:EMPTY_GEO,zonas:EMPTY_GEO,localidades:EMPTY_GEO,quarteiroes:EMPTY_GEO,faces:EMPTY_GEO,imoveis:EMPTY_GEO});
+  const displayedLayers=useMemo<Record<LayerKey,FeatureCollection>>(()=>({...layers,zonas:{type:'FeatureCollection',features:groupedPolygons(layers.quarteiroes,'zona','#7b1fa2')},localidades:{type:'FeatureCollection',features:groupedPolygons(layers.quarteiroes,'localidade','#00897b')}}),[layers]);
+  const html=useMemo(()=>buildMapHtml(displayedLayers),[displayedLayers]);
+  const load=useCallback(async()=>{setLoading(true);setSelectedLabel('');try{const apiUrl=getApiUrlForDisplay();const headers=authService.getAuthHeaders();const [statsResponse,zonas,localidades,quarteiroes,imoveis,quarteiroesMap,facesMap]=await Promise.all([fetch(`${apiUrl}/stats`,{headers}).then(response=>{if(!response.ok)throw new Error('Erro ao carregar estatísticas');return response.json()}),zonaService.list(),localidadeService.list(),quarteiraoService.list(),imovelService.list(),fetch(`${apiUrl}/quarteiroes/map`,{headers}).then(response=>{if(!response.ok)throw new Error('Erro ao carregar quarteirões');return response.json()}),faceService.getMap()]);const counts={zonas:zonas.length,localidades:localidades.length,quarteiroes:Number(statsResponse.quarteiroes||0),faces:Number(statsResponse.faces||0),imoveis:Number(statsResponse.imoveis||0)};setStats({...counts,total:Object.values(counts).reduce((sum,value)=>sum+value,0)});const imovelFeatures=imoveis.map((item:any)=>{const tipo=String(item.tipo||'Outro');const normalized=tipo.toLowerCase();const color=normalized.includes('resid')?'#2f80ed':normalized.includes('comerc')?'#e67e22':normalized.includes('terreno')||normalized.includes('baldio')?'#27ae60':'#8e44ad';return makePointFeature(item.latitude,item.longitude,{title:`${item.nome_logradouro||'Imóvel'}, ${item.numero||'S/N'}`,subtitle:'Imóvel cadastrado',tipo,color});}).filter(Boolean);setLayers({municipal:EMPTY_GEO,zonas:{type:'FeatureCollection',features:groupedFeatures(quarteiroes,'nome_zona','latitude_quadra','longitude_quadra','#8e44ad')},localidades:{type:'FeatureCollection',features:groupedFeatures(quarteiroes,'nome_localidade','latitude_quadra','longitude_quadra','#16a085')},quarteiroes:quarteiroesMap||EMPTY_GEO,faces:facesMap||EMPTY_GEO,imoveis:{type:'FeatureCollection',features:imovelFeatures}});}catch(error:any){Alert.alert('Meu mapa de campo',error?.message||'Não foi possível carregar os dados do mapa.');}finally{setLoading(false);}},[]);
+  useEffect(()=>{load();},[load]);
+  const toggleLayer=(key:LayerKey)=>{setEnabledLayers(current=>({...current,[key]:!current[key]}));webRef.current?.injectJavaScript(`toggleLayer(${JSON.stringify(key)});true;`);};
+  const onMessage=useCallback((event:WebViewMessageEvent)=>{try{const message=JSON.parse(event.nativeEvent.data);if(message.type==='feature_click')setSelectedLabel(`Selecionado: ${message.label}`);if(message.type==='notice')setSelectedLabel(message.message);}catch{}},[]);
+  const cards=[['Zonas',stats.zonas,'map-marker-alt','#8e44ad'],['Localidades',stats.localidades,'city','#16a085'],['Quarteirões',stats.quarteiroes,'th','#2f80ed'],['Faces',stats.faces,'road','#f39c12'],['Imóveis',stats.imoveis,'home','#d35400'],['Total geral',stats.total,'layer-group',colors.primary]] as const;
+  return <SafeAreaView style={[styles.safe,{backgroundColor:colors.background}]}><View style={[styles.header,{backgroundColor:colors.card,borderBottomColor:colors.border}]}><TouchableOpacity onPress={()=>navigation.goBack()} style={styles.back}><Ionicons name="arrow-back" size={22} color={colors.text}/></TouchableOpacity><View style={styles.titleWrap}><Text style={[styles.title,{color:colors.text}]}>Meu mapa de campo</Text>{!!selectedLabel&&<Text style={[styles.selected,{color:colors.textSecondary}]} numberOfLines={1}>{selectedLabel}</Text>}</View><TouchableOpacity onPress={load} disabled={loading} style={styles.refresh}>{loading?<ActivityIndicator size="small" color={colors.primary}/>:<Ionicons name="refresh" size={21} color={colors.primary}/>}</TouchableOpacity></View><View style={styles.cards}>{cards.map(([label,value,icon,color])=><View key={label} style={[styles.card,{backgroundColor:colors.card,borderColor:colors.border}]}><FontAwesome5 name={icon} size={14} color={color}/><Text style={[styles.cardValue,{color:colors.text}]}>{value}</Text><Text style={[styles.cardLabel,{color:colors.textSecondary}]} numberOfLines={1}>{label}</Text></View>)}</View><View style={styles.controls}><Text style={[styles.controlTitle,{color:colors.text}]}>Controle do mapa</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{LAYERS.map(layer=><TouchableOpacity key={layer.key} onPress={()=>toggleLayer(layer.key)} style={[styles.filter,{borderColor:enabledLayers[layer.key]?colors.primary:colors.border,backgroundColor:enabledLayers[layer.key]?colors.primary:colors.card,opacity:enabledLayers[layer.key]?1:.65}]}><FontAwesome5 name={layer.icon} size={13} color={enabledLayers[layer.key]?'#fff':colors.text}/><Text style={{color:enabledLayers[layer.key]?'#fff':colors.text,fontWeight:'700',fontSize:12}}>{layer.label}</Text></TouchableOpacity>)}</ScrollView></View><View style={styles.mapWrap}>{loading?<View style={styles.loading}><ActivityIndicator size="large" color={colors.primary}/><Text style={{marginTop:10,color:colors.textSecondary}}>Carregando mapa...</Text></View>:<WebView ref={webRef} originWhitelist={['*']} source={{html}} javaScriptEnabled domStorageEnabled onMessage={onMessage} setSupportMultipleWindows={false}/>}</View></SafeAreaView>;
 };
-
+const styles=StyleSheet.create({safe:{flex:1},header:{minHeight:62,paddingHorizontal:12,flexDirection:'row',alignItems:'center',borderBottomWidth:1},back:{padding:8},refresh:{padding:10},titleWrap:{flex:1,marginHorizontal:8},title:{fontSize:19,fontWeight:'800'},selected:{fontSize:11,marginTop:2},cards:{flexDirection:'row',padding:8,gap:5},card:{flex:1,minHeight:78,borderRadius:8,borderWidth:1,padding:7,justifyContent:'space-between'},cardValue:{fontSize:19,fontWeight:'800'},cardLabel:{fontSize:10,fontWeight:'600'},controls:{paddingHorizontal:12,paddingBottom:10},controlTitle:{fontSize:15,fontWeight:'800',marginBottom:8},filters:{gap:8},filter:{minHeight:38,paddingHorizontal:11,borderRadius:8,borderWidth:1,flexDirection:'row',alignItems:'center',gap:7},mapWrap:{flex:1,overflow:'hidden'},loading:{flex:1,alignItems:'center',justifyContent:'center'}});
 export default MapaQuarteiroes;

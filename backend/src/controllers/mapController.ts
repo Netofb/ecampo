@@ -5,16 +5,21 @@ export const getQuarteiroesMap = async (req: any, res: Response) => {
   try {
     const userId = req.userId;
 
-    const quarteiroes = await db('tb_quarteiroes')
-      .where('id_usuario', userId)
+    const quarteiroes = await db('tb_quarteiroes as q')
+      .leftJoin('tb_zonas as z', 'q.id_zona', 'z.id_zona')
+      .leftJoin('tb_localidades as l', 'q.id_localidade', 'l.id_localidade')
+      .where('q.id_usuario', userId)
       .select(
-        'id_quadra',
-        'nome_quadra',
-        'numero_quadra',
-        'latitude_quadra',
-        'longitude_quadra',
-        'cor_poligono',
-        'poligono_geojson'
+        'q.id_quadra',
+        'q.nome_quadra',
+        'q.numero_quadra',
+        'q.latitude_quadra',
+        'q.longitude_quadra',
+        'q.cor_poligono',
+        'q.poligono_geojson',
+        'q.geojson',
+        'z.nome_zona',
+        'l.nome_localidade'
       );
 
     const features: any[] = [];
@@ -23,18 +28,20 @@ export const getQuarteiroesMap = async (req: any, res: Response) => {
       // Adiciona polígono se existir
       if (q.poligono_geojson) {
         try {
-          const geojson = typeof q.poligono_geojson === 'string' 
-            ? JSON.parse(q.poligono_geojson) 
-            : q.poligono_geojson;
+          const rawGeojson = q.poligono_geojson || q.geojson;
+          const geojson = typeof rawGeojson === 'string' ? JSON.parse(rawGeojson) : rawGeojson;
+          const geometry = geojson.type === 'Feature' ? geojson.geometry : geojson;
           
           features.push({
             type: 'Feature',
             id: `polygon-${q.id_quadra}`,
-            geometry: geojson.type ? geojson : geojson.geometry,
+            geometry,
             properties: {
               id: q.id_quadra,
               nome: q.nome_quadra,
               numero: q.numero_quadra,
+              zona: q.nome_zona || 'Sem zona',
+              localidade: q.nome_localidade || 'Sem localidade',
               color: q.cor_poligono || '#3388ff',
               type: 'polygon'
             }
@@ -57,6 +64,8 @@ export const getQuarteiroesMap = async (req: any, res: Response) => {
             id: q.id_quadra,
             nome: q.nome_quadra,
             numero: q.numero_quadra,
+            zona: q.nome_zona || 'Sem zona',
+            localidade: q.nome_localidade || 'Sem localidade',
             color: q.cor_poligono || '#3388ff',
             type: 'point'
           }
@@ -86,43 +95,43 @@ export const getFacesMap = async (req: any, res: Response) => {
         'tb_faces.numero_face',
         'tb_faces.latitude',
         'tb_faces.longitude',
+        'tb_faces.nome_linha',
         'tb_faces.linha_geojson',
         'tb_faces.cor_linha',
         'tb_quarteiroes.nome_quadra',
-        'tb_quarteiroes.numero_quadra'
+        'tb_quarteiroes.numero_quadra',
+        'tb_quarteiroes.latitude_quadra',
+        'tb_quarteiroes.longitude_quadra'
       );
 
     const features: any[] = [];
 
     faces.forEach(f => {
-      // Adiciona linha se existir
       if (f.linha_geojson) {
         try {
-          let geojson = f.linha_geojson;
-          if (typeof geojson === 'string') {
-            geojson = JSON.parse(geojson);
-          }
-          
+          const rawGeojson = typeof f.linha_geojson === 'string' ? JSON.parse(f.linha_geojson) : f.linha_geojson;
+          const geometry = rawGeojson.type === 'Feature' ? rawGeojson.geometry : (rawGeojson.geometry || rawGeojson);
           features.push({
             type: 'Feature',
             id: `line-${f.id_face}`,
-            geometry: geojson.type ? geojson : (geojson.geometry || geojson),
+            geometry,
             properties: {
               id: f.id_face,
               numero: f.numero_face,
               quarteirao: f.nome_quadra || 'Sem quarteirão',
               numeroQuarteirao: f.numero_quadra,
+              title: `Face #${f.numero_face}`,
+              subtitle: f.nome_quadra || 'Sem quarteirão',
               color: f.cor_linha || '#FF9800',
-              type: 'line'
-            }
+              type: 'line',
+            },
           });
-        } catch (e) {
-          console.error(`Error parsing line for face ${f.id_face}:`, e);
+        } catch (error) {
+          console.error(`Error parsing line for face ${f.id_face}:`, error);
         }
       }
 
-      // Adiciona ponto se existir
-      if (f.latitude && f.longitude) {
+      if (f.latitude != null && f.longitude != null) {
         features.push({
           type: 'Feature',
           id: `point-${f.id_face}`,
@@ -135,8 +144,11 @@ export const getFacesMap = async (req: any, res: Response) => {
             numero: f.numero_face,
             quarteirao: f.nome_quadra || 'Sem quarteirão',
             numeroQuarteirao: f.numero_quadra,
-            color: f.cor_linha || '#FF9800',
-            type: 'point'
+            nomeLinha: f.nome_linha || '',
+            title: `Face #${f.numero_face}`,
+            subtitle: f.nome_quadra || 'Sem quarteirão',
+            color: '#FF9800',
+            type: 'point',
           }
         });
       }
