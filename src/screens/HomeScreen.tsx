@@ -71,6 +71,7 @@ const HomeScreen: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [syncModalVisible, setSyncModalVisible] = useState(false);
   const [syncModalData, setSyncModalData] = useState({ pushedSuccess: 0, pulled: 0, pushedConflicts: 0 });
+  const profilePhotoUri = /^(https?:\/\/|data:image\/)/i.test(userPhoto) ? userPhoto : '';
 
 
     // Itens do menu lateral com navegação
@@ -316,11 +317,19 @@ const HomeScreen: React.FC = () => {
 
           {/* Perfil (Direita) */}
           <View style={styles.profileButton}>
-            <View style={styles.profileImagePlaceholder}>
-              <Text style={styles.profileInitials}>
-                {userName ? userName.charAt(0) : 'U'}
-              </Text>
-            </View>
+            {profilePhotoUri ? (
+              <Image
+                source={{ uri: profilePhotoUri }}
+                style={styles.profileImage}
+                onError={() => setUserPhoto('')}
+              />
+            ) : (
+              <View style={styles.profileImagePlaceholder}>
+                <Text style={styles.profileInitials}>
+                  {userName ? userName.charAt(0) : 'U'}
+                </Text>
+              </View>
+            )}
             <View style={styles.profileInfo}>
               <Text style={[styles.profileName, { color: colors.text }]}>
                 {userName || 'Usuário'}

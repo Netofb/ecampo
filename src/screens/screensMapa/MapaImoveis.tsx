@@ -32,21 +32,33 @@ async function fetchGeoJson(): Promise<FeatureCollection> {
   const data = await imovelService.list();
   
   const features = data
-    .filter((i: any) => i.latitude && i.longitude)
-    .map((i: any) => ({
-      type: 'Feature',
-      id: i.id_imovel,
-      geometry: {
-        type: 'Point',
-        coordinates: [parseFloat(i.longitude), parseFloat(i.latitude)]
-      },
+    .map((i: any) => {
+      const candidates = [
+        [i.latitude, i.longitude],
+        [i.face_latitude, i.face_longitude],
+        [i.quarteirao_latitude, i.quarteirao_longitude],
+      ];
+      const location = candidates
+        .map(([latitude, longitude]) => [Number(latitude), Number(longitude)])
+        .find(([latitude, longitude]) => Number.isFinite(latitude) && Number.isFinite(longitude) && latitude !== 0 && longitude !== 0);
+      if (!location) return null;
+      const [longitude, latitude] = [location[1], location[0]];
+      return {
+        type: 'Feature',
+        id: i.id_imovel,
+        geometry: {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        },
       properties: {
         id: i.id_imovel,
         logradouro: i.nome_logradouro || 'Sem endereço',
         numero: i.numero || 'S/N',
         color: '#9C27B0'
       }
-    }));
+      };
+    })
+    .filter(Boolean);
 
   return {
     type: 'FeatureCollection',
@@ -67,9 +79,12 @@ function buildLeafletHtml(geojson: FeatureCollection) {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" crossorigin="anonymous"/>
   <style>
     html, body { height: 100%; margin: 0; padding: 0; background: #fff; }
     #map { height: 100%; width: 100%; }
+    .map-marker { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:2px solid #fff; border-radius:50% 50% 50% 0; transform:rotate(-45deg); box-shadow:0 3px 7px rgba(20,45,55,.28); }
+    .map-marker i { color:#fff; font-size:14px; transform:rotate(45deg); }
     .leaflet-popup-content { margin: 10px 12px; }
     .title { font-weight: 800; margin-bottom: 6px; }
     .sub { opacity: 0.8; margin-bottom: 10px; }
@@ -95,11 +110,14 @@ function buildLeafletHtml(geojson: FeatureCollection) {
     }
 
     const geojson = ${geoStr};
-    const map = L.map('map', { zoomControl: true, preferCanvas: true });
+    const map = L.map('map', { zoomControl: false, preferCanvas: true, zoomSnap: 0.5, zoomDelta: 0.5 });
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 120 }).addTo(map);
 
-    const baseOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const baseOSM = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 20,
-      attribution: '&copy; OpenStreetMap'
+      subdomains: 'abcd',
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     });
 
     baseOSM.addTo(map);
@@ -138,14 +156,7 @@ function buildLeafletHtml(geojson: FeatureCollection) {
         filter: (f) => f?.geometry?.type === "Point",
         pointToLayer: (f, latlng) => {
           const color = f.properties?.color || "#9C27B0";
-          return L.circleMarker(latlng, {
-            radius: 8,
-            fillColor: color,
-            color: "#fff",
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.8
-          });
+          return L.marker(latlng, { icon: L.divIcon({ className: "", html: '<div class="map-marker" style="background:' + color + '"><i class="fas fa-home"></i></div>', iconSize: [30, 38], iconAnchor: [15, 38], popupAnchor: [0, -34] }) });
         },
         onEachFeature: (f, layer) => {
           layer.on("click", () => {

@@ -32,6 +32,9 @@ interface Quarteirao {
   zona: string;
   status: 'Ativo' | 'Inativo';
   area: number;
+  latitude?: number;
+  longitude?: number;
+  geojson?: object | null;
   data_cadastro: string;
   descricao?: string;
   total_producoes?: number;
@@ -63,6 +66,7 @@ const CadastroQuarteirao: React.FC = () => {
   });
 
   const [quarteiroes, setQuarteiroes] = useState<Quarteirao[]>([]);
+  const [expandedQuarteiroes, setExpandedQuarteiroes] = useState<Record<string, boolean>>({});
   const [localidades, setLocalidades] = useState<any[]>([]);
   const [zonas, setZonas] = useState<any[]>([]);
   
@@ -74,6 +78,36 @@ const CadastroQuarteirao: React.FC = () => {
   const modalScrollRef = useRef<ScrollView>(null);
   const [mapData, setMapData] = useState<MapPolygonData | null>(null);
   const [mapReady, setMapReady] = useState(false);
+
+  const parseGeojson = (value: unknown): object | null => {
+    if (!value) return null;
+    if (typeof value === 'object') return value as object;
+    if (typeof value !== 'string') return null;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  };
+
+  const getGeojsonCenter = (geojson: object | null) => {
+    if (!geojson) return null;
+    const points: number[][] = [];
+    const collect = (value: unknown) => {
+      if (!Array.isArray(value)) return;
+      if (typeof value[0] === 'number' && typeof value[1] === 'number') {
+        points.push(value);
+        return;
+      }
+      value.forEach(collect);
+    };
+    collect((geojson as any).geometry?.coordinates || (geojson as any).coordinates);
+    if (points.length === 0) return null;
+    return {
+      lat: points.reduce((sum, point) => sum + point[1], 0) / points.length,
+      lng: points.reduce((sum, point) => sum + point[0], 0) / points.length,
+    };
+  };
 
   // Filtra quarteirões por busca
   const quarteiroesFiltrados = quarteiroes.filter(quarteirao =>
@@ -102,20 +136,51 @@ const CadastroQuarteirao: React.FC = () => {
   const carregarQuarteiroes = async () => {
     try {
       setLoading(true);
-      const data = await quarteiraoService.list();
+      const [data, mapResponse] = await Promise.all([
+        quarteiraoService.list(),
+        quarteiraoService.map().catch(() => ({ features: [] })),
+      ]);
+      const mapFeatures = Array.isArray(mapResponse?.features) ? mapResponse.features : [];
       
-      const quarteiroesMapeados = data.map((q: any) => ({
-        id: q.id_quadra?.toString() || q.id?.toString(),
-        numero: q.numero_quadra || q.numero,
-        nome: q.nome_quadra || q.nome || 'Sem nome',
-        localidade: q.nome_localidade || 'N/A',
-        zona: q.nome_zona || 'N/A',
-        status: q.status || 'Ativo',
-        area: 0,
-        data_cadastro: new Date().toISOString(),
-        descricao: '',
-        total_producoes: parseInt(q.total_producoes) || 0,
-      }));
+      const quarteiroesMapeados = data.map((q: any) => {
+        const mapFeaturesForQuarteirao = mapFeatures.filter(
+          (feature: any) => String(feature.properties?.id) === String(q.id_quadra)
+        );
+        const polygonFeature = mapFeaturesForQuarteirao.find(
+          (feature: any) => feature.geometry?.type !== 'Point'
+        );
+        const pointFeature = mapFeaturesForQuarteirao.find(
+          (feature: any) => feature.geometry?.type === 'Point'
+        );
+        const geojson = parseGeojson(q.poligono_geojson || q.geojson) || polygonFeature || null;
+        const geoCenter = getGeojsonCenter(geojson);
+        const storedLatitude = Number(q.latitude_quadra);
+        const storedLongitude = Number(q.longitude_quadra);
+        const mapLatitude = Number(pointFeature?.geometry?.coordinates?.[1]);
+        const mapLongitude = Number(pointFeature?.geometry?.coordinates?.[0]);
+        const latitude = Number.isFinite(storedLatitude) && storedLatitude !== 0
+          ? storedLatitude
+          : geoCenter?.lat ?? (Number.isFinite(mapLatitude) ? mapLatitude : undefined);
+        const longitude = Number.isFinite(storedLongitude) && storedLongitude !== 0
+          ? storedLongitude
+          : geoCenter?.lng ?? (Number.isFinite(mapLongitude) ? mapLongitude : undefined);
+
+        return {
+          id: q.id_quadra?.toString() || q.id?.toString(),
+          numero: q.numero_quadra || q.numero,
+          nome: q.nome_quadra || q.nome || 'Sem nome',
+          localidade: q.nome_localidade || 'N/A',
+          zona: q.nome_zona || 'N/A',
+          status: q.status || 'Ativo',
+          area: Number(q.area_m2) > 0 ? Number(q.area_m2) / 10000 : Number(q.area) || 0,
+          latitude,
+          longitude,
+          geojson,
+          data_cadastro: new Date().toISOString(),
+          descricao: '',
+          total_producoes: parseInt(q.total_producoes) || 0,
+        };
+      });
       
       setQuarteiroes(quarteiroesMapeados);
       setTabelaExiste(true);
@@ -195,8 +260,16 @@ const CadastroQuarteirao: React.FC = () => {
     setQuarteiraoEditando(quarteirao);
     setMapReady(false);
     // Restaura geojson salvo se existir
-    const savedGeojson = (quarteirao as any).geojson || null;
-    setMapData(savedGeojson ? { geojson: savedGeojson, centroid: { lat: 0, lng: 0 }, bounds: [[0,0],[0,0]], area_m2: 0 } : null);
+    const savedGeojson = quarteirao.geojson || null;
+    setMapData(savedGeojson ? {
+      geojson: savedGeojson,
+      centroid: {
+        lat: quarteirao.latitude ?? 0,
+        lng: quarteirao.longitude ?? 0,
+      },
+      bounds: [[0, 0], [0, 0]],
+      area_m2: quarteirao.area * 10000,
+    } : null);
     
     // Carrega localidades e zonas apenas quando abrir o modal
     if (localidades.length === 0 || zonas.length === 0) {
@@ -231,11 +304,17 @@ const CadastroQuarteirao: React.FC = () => {
       return;
     }
 
+    const localidadeSelecionada = localidades.find(
+      (localidade) => localidade.nome_localidade === formData.localidade
+    );
+    const zonaSelecionada = zonas.find(
+      (zona) => zona.nome_zona === formData.zona
+    );
     const geoPayload = {
-      geojson: mapData.geojson,
-      centroid_lat: mapData.centroid.lat,
-      centroid_lng: mapData.centroid.lng,
-      area_m2: mapData.area_m2,
+      poligono_geojson: mapData.geojson,
+      latitude: mapData.centroid.lat,
+      longitude: mapData.centroid.lng,
+      cor_poligono: '#4CAF50',
     };
 
     try {
@@ -244,8 +323,8 @@ const CadastroQuarteirao: React.FC = () => {
         await quarteiraoService.update(parseInt(quarteiraoEditando.id), {
           nome: formData.nome,
           numero: parseInt(formData.numero),
-          localidade_nome: formData.localidade,
-          zona_nome: formData.zona,
+          id_localidade: localidadeSelecionada?.id_localidade,
+          id_zona: zonaSelecionada?.id_zona,
           status: formData.status,
           ...geoPayload,
         });
@@ -318,10 +397,16 @@ const CadastroQuarteirao: React.FC = () => {
 
   // Renderizar cada quarteirão
   const renderQuarteiraoItem = (quarteirao: Quarteirao) => {
+    const expanded = !!expandedQuarteiroes[quarteirao.id];
+    const toggleExpanded = () => setExpandedQuarteiroes((current) => ({
+      ...current,
+      [quarteirao.id]: !current[quarteirao.id],
+    }));
+
     return (
       <View style={styles.quarteiraoCard}>
         {/* Cabeçalho do card */}
-        <View style={styles.cardHeader}>
+        <TouchableOpacity style={styles.cardHeader} onPress={toggleExpanded} activeOpacity={0.75}>
           <View style={styles.cardHeaderLeft}>
             <View style={styles.numeroContainer}>
               <Text style={styles.numeroText}>#{quarteirao.numero}</Text>
@@ -339,10 +424,30 @@ const CadastroQuarteirao: React.FC = () => {
               {quarteirao.status === 'Ativo' ? 'Ativo' : 'Inativo'}
             </Text>
           </View>
-        </View>
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color="#64748B"
+            style={styles.expandIcon}
+          />
+        </TouchableOpacity>
 
-        {/* Detalhes do quarteirão */}
-        <View style={styles.cardDetails}>
+        {expanded && quarteirao.geojson && (
+          <View style={styles.cardMap}>
+            <QuarteiraoMapWebView
+              initialPolygon={quarteirao.geojson}
+              initialCenter={
+                quarteirao.latitude !== undefined && quarteirao.longitude !== undefined
+                  ? { lat: quarteirao.latitude, lng: quarteirao.longitude }
+                  : undefined
+              }
+              interactive={false}
+              height={150}
+            />
+          </View>
+        )}
+
+        {expanded && <View style={styles.cardDetails}>
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Localidade:</Text>
@@ -354,10 +459,23 @@ const CadastroQuarteirao: React.FC = () => {
               <Text style={styles.detailValue}>{quarteirao.zona}</Text>
             </View>
           </View>
-        </View>
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Latitude:</Text>
+              <Text style={styles.detailValue}>
+                {quarteirao.latitude !== undefined ? quarteirao.latitude.toFixed(6) : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Longitude:</Text>
+              <Text style={styles.detailValue}>
+                {quarteirao.longitude !== undefined ? quarteirao.longitude.toFixed(6) : 'N/A'}
+              </Text>
+            </View>
+          </View>
+        </View>}
 
-        {/* Ações */}
-        <View style={styles.cardActions}>
+        {expanded && <View style={styles.cardActions}>
           <TouchableOpacity 
             style={[styles.actionButton, styles.editButton]}
             onPress={() => abrirModalEdicao(quarteirao)}
@@ -373,7 +491,7 @@ const CadastroQuarteirao: React.FC = () => {
             <Ionicons name="trash-outline" size={16} color="#FF5252" />
             <Text style={[styles.actionButtonText, {color: '#FF5252', marginLeft: 4}]}>Excluir</Text>
           </TouchableOpacity>
-        </View>
+        </View>}
       </View>
     );
   };
@@ -1020,11 +1138,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
+  cardMap: {
+    height: 150,
+    marginBottom: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  expandIcon: {
+    marginLeft: 8,
+    marginTop: 8,
   },
   cardHeaderLeft: {
     flexDirection: 'row',

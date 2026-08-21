@@ -13,8 +13,12 @@ export const listImoveis = async (req: any, res: Response) => {
       .select(
         'i.*',
         'f.numero_face',
+        'f.latitude as face_latitude',
+        'f.longitude as face_longitude',
         'q.nome_quadra',
-        'q.numero_quadra'
+        'q.numero_quadra',
+        'q.latitude_quadra as quarteirao_latitude',
+        'q.longitude_quadra as quarteirao_longitude'
       )
       .orderBy('i.id_imovel', 'asc');
 

@@ -17,6 +17,7 @@ export interface MapMarkerData {
 interface Props {
   initialPolygon?: object | null;
   initialCenter?: { lat: number; lng: number };
+  interactive?: boolean;
   onPolygonChanged?: (data: MapPolygonData) => void;
   onMarkerChanged?: (data: MapMarkerData) => void;
   onReady?: () => void;
@@ -29,7 +30,8 @@ const DEFAULT_CENTER = { lat: -8.3797, lng: -35.4508 }; // Amaraji-PE
 
 const buildHtml = (
   center: { lat: number; lng: number },
-  initialPolygon: object | null
+  initialPolygon: object | null,
+  interactive: boolean
 ) => `<!DOCTYPE html>
 <html>
 <head>
@@ -61,9 +63,10 @@ const buildHtml = (
 <script>
 var map = L.map('map', { zoomControl: true }).setView([${center.lat}, ${center.lng}], 15);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap',
-  maxZoom: 20
+  maxZoom: 20,
+  subdomains: 'abcd'
 }).addTo(map);
 
 var drawnItems = new L.FeatureGroup().addTo(map);
@@ -78,6 +81,17 @@ var drawControl = new L.Control.Draw({
   }
 });
 map.addControl(drawControl);
+
+if (!${interactive}) {
+  map.dragging.disable();
+  map.touchZoom.disable();
+  map.doubleClickZoom.disable();
+  map.scrollWheelZoom.disable();
+  map.boxZoom.disable();
+  map.keyboard.disable();
+  if (map.tap) map.tap.disable();
+  map.removeControl(drawControl);
+}
 
 function postMsg(type, payload) {
   if (window.ReactNativeWebView) {
@@ -211,6 +225,7 @@ const QuarteiraoMapWebView = forwardRef<QuarteiraoMapHandle, Props>((
   {
     initialPolygon = null,
     initialCenter = DEFAULT_CENTER,
+    interactive = true,
     onPolygonChanged,
     onMarkerChanged,
     onReady,
@@ -260,7 +275,7 @@ const QuarteiraoMapWebView = forwardRef<QuarteiraoMapHandle, Props>((
     [onReady, onPolygonChanged, onMarkerChanged]
   );
 
-  const html = buildHtml(initialCenter, initialPolygon);
+  const html = buildHtml(initialCenter, initialPolygon, interactive);
 
   return (
     <View

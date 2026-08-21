@@ -140,6 +140,19 @@ class QuarteiraoService {
     }
   }
 
+  async map() {
+    const response = await fetch(`${API_BASE_URL}/quarteiroes/map`, {
+      method: 'GET',
+      headers: this.authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch quarteirões map');
+    }
+
+    return await response.json();
+  }
+
   async create(data: any) {
     try {
       const response = await fetch(`${API_BASE_URL}/quarteiroes`, {
