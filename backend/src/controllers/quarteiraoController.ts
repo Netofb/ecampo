@@ -111,7 +111,7 @@ export const updateQuarteirao = async (req: any, res: Response) => {
     const userId = req.userId;
 
     const quarteirao = await db('tb_quarteiroes')
-      .where('id_quadra', id)
+      .where({ id_quadra: id, id_usuario: userId })
       .first();
 
     if (!quarteirao) {
@@ -122,7 +122,7 @@ export const updateQuarteirao = async (req: any, res: Response) => {
     const user = await db('usuarios').where('id_usuario', userId).first();
     const ibgeUsuario = user?.ibge || quarteirao.ibge_quadra;
 
-    await db('tb_quarteiroes').where('id_quadra', id).update({
+    await db('tb_quarteiroes').where({ id_quadra: id, id_usuario: userId }).update({
       numero_quadra: numero,
       nome_quadra: nome,
       id_localidade,
@@ -145,16 +145,17 @@ export const updateQuarteirao = async (req: any, res: Response) => {
 export const deleteQuarteirao = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
+    const userId = req.userId;
 
     const quarteirao = await db('tb_quarteiroes')
-      .where('id_quadra', id)
+      .where({ id_quadra: id, id_usuario: userId })
       .first();
 
     if (!quarteirao) {
       return res.status(404).json({ error: 'Quarteirao not found' });
     }
 
-    await db('tb_quarteiroes').where('id_quadra', id).delete();
+    await db('tb_quarteiroes').where({ id_quadra: id, id_usuario: userId }).delete();
 
     res.json({ message: 'Quarteirao deleted successfully' });
   } catch (error) {

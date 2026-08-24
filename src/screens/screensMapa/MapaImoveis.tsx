@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Alert, SafeAreaView, Text, TouchableOpacity, View, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
@@ -195,6 +196,7 @@ function buildLeafletHtml(geojson: FeatureCollection) {
 }
 
 const MapaImoveis: React.FC = () => {
+  const CACHE_KEY = '@ecampo/mapa-imoveis';
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const webRef = useRef<WebView>(null);
@@ -210,11 +212,22 @@ const MapaImoveis: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     setSelectedLabel('');
+    let hasCachedData = false;
     try {
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
+      if (cached) {
+        setGeo(JSON.parse(cached));
+        hasCachedData = true;
+      }
       const data = await fetchGeoJson();
       setGeo(data);
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
     } catch (e: any) {
-      Alert.alert('Mapa', e?.message ?? 'Falha ao carregar GeoJSON.');
+      if (hasCachedData) {
+        setSelectedLabel('Modo offline: último mapa disponível');
+      } else {
+        Alert.alert('Mapa', e?.message ?? 'Falha ao carregar GeoJSON.');
+      }
     } finally {
       setLoading(false);
     }

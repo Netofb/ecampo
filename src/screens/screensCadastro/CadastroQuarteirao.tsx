@@ -1,5 +1,6 @@
 // src/screens/CadastroQuarteirao.tsx - COM PAGINAÇÃO, BUSCA E MAPA
 import React, { useState, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -20,8 +21,11 @@ import { useNavigation } from '@react-navigation/native';
 import { quarteiraoService, localidadeService, zonaService } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
 import QuarteiraoMapWebView, { MapPolygonData, QuarteiraoMapHandle } from '../../components/QuarteiraoMapWebView';
+import { openDatabase } from '../../storage/db';
+import { quarteiraoLocalRepo } from '../../repos/quarteiraoLocalRepo';
 
 const { width } = Dimensions.get('window');
+const LOCALIDADES_ZONAS_CACHE_KEY = '@ecampo/cadastro-quarteirao-opcoes';
 
 // Tipos de dados
 interface Quarteirao {
@@ -187,7 +191,31 @@ const CadastroQuarteirao: React.FC = () => {
       setPaginaAtual(1);
       
     } catch (error: any) {
-      setQuarteiroes([]);
+      try {
+        await openDatabase();
+        const locais = await quarteiraoLocalRepo.list();
+        setQuarteiroes(locais.map((item: any) => {
+          const data = item.data || {};
+          return {
+            id: item.local_id,
+            numero: Number(data.numero ?? data.numero_quadra ?? 0),
+            nome: data.nome ?? data.nome_quadra ?? 'Sem nome',
+            localidade: data.localidade_nome ?? data.localidade ?? 'N/A',
+            zona: data.zona_nome ?? data.zona ?? 'N/A',
+            status: data.status || 'Ativo',
+            area: Number(data.area_m2 || 0) / 10000,
+            latitude: Number(data.latitude),
+            longitude: Number(data.longitude),
+            geojson: data.poligono_geojson || data.geojson || null,
+            data_cadastro: item.updated_at,
+            descricao: data.descricao || '',
+            total_producoes: 0,
+          };
+        }));
+        setTabelaExiste(true);
+      } catch {
+        setQuarteiroes([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -195,7 +223,7 @@ const CadastroQuarteirao: React.FC = () => {
   };
 
   // Carregar localidades e zonas
-  const carregarLocalidadesEZonas = async () => {
+  const carregarLocalidadesEZonas = async (): Promise<{ localidades: any[]; zonas: any[] }> => {
     try {
       const [localidadesData, zonasData] = await Promise.all([
         localidadeService.list(),
@@ -203,8 +231,22 @@ const CadastroQuarteirao: React.FC = () => {
       ]);
       setLocalidades(localidadesData);
       setZonas(zonasData);
+      await AsyncStorage.setItem(LOCALIDADES_ZONAS_CACHE_KEY, JSON.stringify({ localidades: localidadesData, zonas: zonasData }));
+      return { localidades: localidadesData, zonas: zonasData };
     } catch (error) {
-      // Silently fail
+      try {
+        const cached = await AsyncStorage.getItem(LOCALIDADES_ZONAS_CACHE_KEY);
+        if (!cached) return { localidades: [], zonas: [] };
+        const data = JSON.parse(cached);
+        const cachedLocalidades = Array.isArray(data.localidades) ? data.localidades : [];
+        const cachedZonas = Array.isArray(data.zonas) ? data.zonas : [];
+        setLocalidades(cachedLocalidades);
+        setZonas(cachedZonas);
+        return { localidades: cachedLocalidades, zonas: cachedZonas };
+      } catch {
+        // Mantém os campos vazios quando não há cache disponível.
+        return { localidades: [], zonas: [] };
+      }
     }
   };
 
@@ -238,15 +280,15 @@ const CadastroQuarteirao: React.FC = () => {
     setMapReady(false);
     
     // Carrega localidades e zonas apenas quando abrir o modal
-    if (localidades.length === 0 || zonas.length === 0) {
-      await carregarLocalidadesEZonas();
-    }
+    const opcoes = localidades.length > 0 && zonas.length > 0
+      ? { localidades, zonas }
+      : await carregarLocalidadesEZonas();
     
     setFormData({
       numero: '',
       nome: '',
-      localidade: localidades.length > 0 ? localidades[0].nome_localidade : '',
-      zona: zonas.length > 0 ? zonas[0].nome_zona : '',
+      localidade: opcoes.localidades.length > 0 ? opcoes.localidades[0].nome_localidade : '',
+      zona: opcoes.zonas.length > 0 ? opcoes.zonas[0].nome_zona : '',
       area: '',
       status: 'Ativo',
       descricao: '',
@@ -346,6 +388,37 @@ const CadastroQuarteirao: React.FC = () => {
       await carregarQuarteiroes();
       setModalVisible(false);
     } catch (error: any) {
+      if (!error?.response) {
+        try {
+          await openDatabase();
+          const localPayload = {
+            nome: formData.nome,
+            numero: parseInt(formData.numero),
+            localidade_nome: formData.localidade,
+            zona_nome: formData.zona,
+            status: formData.status,
+            area_m2: mapData.area_m2,
+            ...geoPayload,
+          };
+          if (editando && quarteiraoEditando && !Number.isNaN(Number(quarteiraoEditando.id))) {
+            throw error;
+          }
+          if (editando && quarteiraoEditando) {
+            await quarteiraoLocalRepo.updateLocal(quarteiraoEditando.id, localPayload);
+          } else {
+            await quarteiraoLocalRepo.createLocal(localPayload);
+          }
+          Alert.alert('Salvo offline', 'Quarteirão gravado localmente e marcado para sincronização.');
+          await carregarQuarteiroes();
+          setModalVisible(false);
+          return;
+        } catch (offlineError: any) {
+          if (offlineError !== error) {
+            Alert.alert('Erro', 'Não foi possível salvar o quarteirão localmente.');
+            return;
+          }
+        }
+      }
       const mensagem = error.response?.data?.error || 'Não foi possível salvar o quarteirão. Verifique se a localidade e zona existem.';
       Alert.alert('Erro', mensagem);
     }

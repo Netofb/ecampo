@@ -56,15 +56,16 @@ export const createFace = async (req: any, res: Response) => {
 export const updateFace = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
+    const userId = req.userId;
     const { numero_face, id_quarteirao, nome_linha, status } = req.body;
 
-    const face = await db('tb_faces').where('id_face', id).first();
+    const face = await db('tb_faces').where({ id_face: id, id_usuario: userId }).first();
 
     if (!face) {
       return res.status(404).json({ error: 'Face not found' });
     }
 
-    await db('tb_faces').where('id_face', id).update({
+    await db('tb_faces').where({ id_face: id, id_usuario: userId }).update({
       numero_face,
       id_quarteirao,
       nome_linha,
@@ -81,14 +82,15 @@ export const updateFace = async (req: any, res: Response) => {
 export const deleteFace = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
+    const userId = req.userId;
 
-    const face = await db('tb_faces').where('id_face', id).first();
+    const face = await db('tb_faces').where({ id_face: id, id_usuario: userId }).first();
 
     if (!face) {
       return res.status(404).json({ error: 'Face not found' });
     }
 
-    await db('tb_faces').where('id_face', id).delete();
+    await db('tb_faces').where({ id_face: id, id_usuario: userId }).delete();
 
     res.json({ message: 'Face deleted successfully' });
   } catch (error) {

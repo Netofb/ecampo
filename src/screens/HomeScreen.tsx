@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { SyncService } from '../sync/SyncService';
 import SyncResultModal from '../components/SyncResultModal';
+import NetInfo from '@react-native-community/netinfo';
 
 
 const { width } = Dimensions.get('window');
@@ -56,6 +57,12 @@ interface MenuItem {
   dropdownItems?: DropdownItem[];
 }
 
+function formatSyncDate(value: string | null) {
+  if (!value) return 'Nunca sincronizado';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Data indisponível' : `Última sincronização: ${date.toLocaleString('pt-BR')}`;
+}
+
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
@@ -70,7 +77,8 @@ const HomeScreen: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState({ pending: 0, conflicts: 0, lastSync: null as string | null });
   const [syncing, setSyncing] = useState(false);
   const [syncModalVisible, setSyncModalVisible] = useState(false);
-  const [syncModalData, setSyncModalData] = useState({ pushedSuccess: 0, pulled: 0, pushedConflicts: 0 });
+  const [syncModalData, setSyncModalData] = useState({ pushedSuccess: 0, pulled: 0, pushedConflicts: 0, pushedErrors: 0 });
+  const autoSyncInProgress = useRef(false);
   const profilePhotoUri = /^(https?:\/\/|data:image\/)/i.test(userPhoto) ? userPhoto : '';
 
 
@@ -155,6 +163,29 @@ const HomeScreen: React.FC = () => {
     setTimeout(() => loadStats(), 100);
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(async (state) => {
+      if (!state.isConnected || autoSyncInProgress.current || syncing) return;
+      autoSyncInProgress.current = true;
+      try {
+        const result = await SyncService.sync();
+        setSyncModalData({
+          pushedSuccess: result.pushed.success,
+          pulled: result.pulled,
+          pushedConflicts: result.pushed.conflicts,
+          pushedErrors: result.pushed.errors,
+        });
+        setSyncModalVisible(true);
+        await loadSyncStatus();
+      } catch {
+        // A conexão recém-restaurada pode ainda não estar pronta; a próxima tentativa manual continua disponível.
+      } finally {
+        autoSyncInProgress.current = false;
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   const loadSyncStatus = async () => {
     try {
       const status = await SyncService.getSyncStatus();
@@ -173,6 +204,7 @@ const HomeScreen: React.FC = () => {
         pushedSuccess: result.pushed.success,
         pulled: result.pulled,
         pushedConflicts: result.pushed.conflicts,
+        pushedErrors: result.pushed.errors,
       });
       setSyncModalVisible(true);
 
@@ -368,10 +400,27 @@ const HomeScreen: React.FC = () => {
                     >
                       <View style={styles.menuItemLeft}>
                         <Ionicons name={item.icon as any} size={20} color={colors.text} style={styles.menuItemIcon} />
-                        <Text style={[styles.menuItemText, { color: colors.text }]}>{item.title}</Text>
+                        <View>
+                          <Text style={[styles.menuItemText, { color: colors.text }]}>{item.title}</Text>
+                          {item.id === 0 && (
+                            <>
+                              <Text style={[styles.syncSummary, { color: colors.textSecondary }]}>
+                                {syncStatus.pending} pendente(s) · {syncStatus.conflicts} conflito(s)
+                              </Text>
+                              <Text style={[styles.syncSummary, { color: colors.textSecondary }]}>
+                                {formatSyncDate(syncStatus.lastSync)}
+                              </Text>
+                            </>
+                          )}
+                        </View>
                         {item.id === 0 && syncStatus.pending > 0 && (
                           <View style={[styles.menuBadge, { backgroundColor: colors.danger }]}>
                             <Text style={styles.menuBadgeText}>{syncStatus.pending}</Text>
+                          </View>
+                        )}
+                        {item.id === 0 && syncStatus.conflicts > 0 && (
+                          <View style={[styles.menuBadge, { backgroundColor: '#B45309' }]}>
+                            <Text style={styles.menuBadgeText}>{syncStatus.conflicts}</Text>
                           </View>
                         )}
                       </View>
@@ -466,6 +515,7 @@ const HomeScreen: React.FC = () => {
           pushedSuccess={syncModalData.pushedSuccess}
           pulled={syncModalData.pulled}
           pushedConflicts={syncModalData.pushedConflicts}
+          pushedErrors={syncModalData.pushedErrors}
         />
       </SafeAreaView>
     );
@@ -603,6 +653,10 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
+  },
+  syncSummary: {
+    fontSize: 10,
+    marginTop: 2,
   },
   menuBadge: {
     marginLeft: 8,

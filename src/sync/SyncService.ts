@@ -2,6 +2,9 @@ import NetInfo from '@react-native-community/netinfo';
 import { getDatabase } from '../storage/db';
 import { quarteiraoLocalRepo } from '../repos/quarteiraoLocalRepo';
 import { authService, getApiUrlForDisplay } from '../services/api';
+import { listFotosLocais } from '../services/fotoLocal';
+import { listPontosLocais } from '../services/pontoLocal';
+import { listProducaoLocal } from '../services/producaoLocal';
 
 // Mantém a sincronização na mesma API configurada para os demais serviços,
 // inclusive quando a variável de ambiente não foi definida.
@@ -50,6 +53,10 @@ export const SyncService = {
             payload: JSON.parse(op.payload)
           })
         });
+
+        if (!response.ok) {
+          throw new Error(`Falha ao enviar alteração (${response.status})`);
+        }
 
         const result = await response.json();
 
@@ -115,6 +122,10 @@ export const SyncService = {
       headers: authService.getAuthHeaders()
     });
 
+    if (!response.ok) {
+      throw new Error(`Falha ao baixar alterações (${response.status})`);
+    }
+
     const data = await response.json();
     let applied = 0;
 
@@ -166,6 +177,12 @@ export const SyncService = {
 
   async getSyncStatus() {
     const db = getDatabase();
+    const [fotos, pontos, producoes] = await Promise.all([
+      listFotosLocais(),
+      listPontosLocais(),
+      listProducaoLocal(),
+    ]);
+    const localPending = fotos.length + pontos.length + producoes.length;
     return new Promise<{ pending: number; conflicts: number; lastSync: string | null }>((resolve, reject) => {
       db.transaction(tx => {
         let pending = 0, conflicts = 0, lastSync = null;
@@ -187,7 +204,7 @@ export const SyncService = {
           [],
           (_, { rows }) => {
             lastSync = rows.length > 0 ? rows.item(0).value : null;
-            resolve({ pending, conflicts, lastSync });
+            resolve({ pending: pending + localPending, conflicts, lastSync });
           },
           (_, error) => { reject(error); return false; }
         );

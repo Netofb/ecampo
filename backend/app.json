@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "cd10d163-62b3-45f1-8b5f-d08645c0e62c"
+      }
+    },
+    "android": {
+      "package": "com.fabio_barros.ecampobackend"
+    }
+  }
+}

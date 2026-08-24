@@ -9,6 +9,7 @@ type Props = {
   pushedSuccess: number;
   pulled: number;
   pushedConflicts: number;
+  pushedErrors: number;
 };
 
 export default function SyncResultModal({
@@ -18,6 +19,7 @@ export default function SyncResultModal({
   pushedSuccess,
   pulled,
   pushedConflicts,
+  pushedErrors,
 }: Props) {
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
@@ -55,6 +57,13 @@ export default function SyncResultModal({
                 <Text>
                 Conflitos: <Text style={{ fontWeight: "700" }}>{pushedConflicts}</Text>
                 </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <FontAwesome5 name="times-circle" size={16} color="#B45309" style={{ marginRight: 8 }} />
+              <Text>
+              Erros: <Text style={{ fontWeight: "700" }}>{pushedErrors}</Text>
+              </Text>
             </View>
 
             </View>

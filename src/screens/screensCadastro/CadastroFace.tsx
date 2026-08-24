@@ -16,6 +16,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { faceService, quarteiraoService, authService } from '../../services/api';
+import { addFaceLocal, listFacesLocais } from '../../services/faceLocal';
 
 interface Face {
   id_face: number;
@@ -74,7 +75,14 @@ const CadastroFace: React.FC = () => {
       setFaces(data);
       setPaginaAtual(1);
     } catch (error) {
-      // Silently fail
+      const locais = await listFacesLocais();
+      setFaces(locais.map((face, index) => ({
+        ...face,
+        id_face: -(index + 1),
+        nome_quadra: 'Quarteirão local',
+        numero_quadra: 0,
+      })));
+      setPaginaAtual(1);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -159,6 +167,18 @@ const CadastroFace: React.FC = () => {
       await carregarFaces();
       setModalVisible(false);
     } catch (error: any) {
+      if (!error?.response) {
+        await addFaceLocal({
+          numero_face: parseInt(formData.numero_face),
+          id_quarteirao: parseInt(formData.id_quarteirao),
+          nome_linha: formData.nome_linha,
+          status: formData.status,
+        });
+        await carregarFaces();
+        setModalVisible(false);
+        Alert.alert('Salvo offline', 'Face gravada localmente e marcada para sincronização.');
+        return;
+      }
       Alert.alert('Erro', error.message || 'Não foi possível salvar a face');
     }
   };

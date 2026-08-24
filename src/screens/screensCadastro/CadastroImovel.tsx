@@ -15,6 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { imovelService, quarteiraoService, faceService } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import { addImovelLocal, listImoveisLocais } from '../../services/imovelLocal';
 
 interface Imovel {
   id_imovel: number;
@@ -89,6 +90,16 @@ const CadastroImovel: React.FC = () => {
       setPaginaAtual(1);
     } catch (error) {
       console.error('Erro ao carregar imóveis:', error);
+      const locais = await listImoveisLocais();
+      setImoveis(locais.map((imovel, index) => ({
+        ...imovel,
+        id_imovel: -(index + 1),
+        seq1: imovel.seq1,
+        nome_quadra: 'Quarteirão local',
+        numero_quadra: 0,
+        numero_face: 0,
+      })));
+      setPaginaAtual(1);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -207,6 +218,21 @@ const CadastroImovel: React.FC = () => {
       await carregarImoveis();
       setModalVisible(false);
     } catch (error: any) {
+      if (!error?.response) {
+        await addImovelLocal({
+          id_face: parseInt(formData.id_face),
+          seq1: parseInt(formData.seq1),
+          nome_logradouro: formData.nome_logradouro,
+          numero: formData.numero,
+          seq: formData.seq,
+          tipo: formData.tipo,
+          status: formData.status,
+        });
+        await carregarImoveis();
+        setModalVisible(false);
+        Alert.alert('Salvo offline', 'Imóvel gravado localmente e marcado para sincronização.');
+        return;
+      }
       Alert.alert('Erro', error.message || 'Não foi possível salvar');
     }
   };
