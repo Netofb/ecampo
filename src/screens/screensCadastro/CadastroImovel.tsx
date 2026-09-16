@@ -12,10 +12,12 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { imovelService, quarteiraoService, faceService } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
 import { addImovelLocal, listImoveisLocais } from '../../services/imovelLocal';
+import QuarteiraoMapWebView from '../../components/QuarteiraoMapWebView';
 
 interface Imovel {
   id_imovel: number;
@@ -32,6 +34,21 @@ interface Imovel {
 }
 
 const TIPOS_IMOVEL = ['R-Residência', 'C-Comércio', 'T-Terreno baldio', 'Outro'];
+
+const DropdownField: React.FC<{ label: string; onPress: () => void }> = ({ label, onPress }) => (
+  <View style={styles.dropdownWrapper}>
+    <TouchableOpacity style={styles.dropdownField} onPress={onPress} activeOpacity={0.8}>
+      <Text style={styles.dropdownLabel} numberOfLines={1}>{label}</Text>
+      <Text style={styles.dropdownArrow}>⌄</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+const DropdownOption: React.FC<{ label: string; selected: boolean; onPress: () => void }> = ({ label, selected, onPress }) => (
+  <TouchableOpacity style={styles.dropdownOption} onPress={onPress}>
+    <Text style={[styles.dropdownOptionText, selected && styles.dropdownOptionSelected]}>{selected ? '✓ ' : ''}{label}</Text>
+  </TouchableOpacity>
+);
 
 const CadastroImovel: React.FC = () => {
   const navigation = useNavigation();
@@ -62,12 +79,22 @@ const CadastroImovel: React.FC = () => {
   const [faces, setFaces] = useState<any[]>([]);
   const [facesFiltradas, setFacesFiltradas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dropdownAberto, setDropdownAberto] = useState<'quarteirao' | 'face' | 'tipo' | 'status' | null>(null);
 
   const imoveisFiltrados = imoveis.filter(imovel =>
     (imovel.nome_logradouro || '').toLowerCase().includes(busca.toLowerCase()) ||
     (imovel.numero || '').toLowerCase().includes(busca.toLowerCase()) ||
     (imovel.nome_quadra || '').toLowerCase().includes(busca.toLowerCase())
   );
+  const quarteiraoSelecionado = quarteiroes.find((q) => q.id_quadra.toString() === formData.id_quarteirao);
+  const poligonoBruto = quarteiraoSelecionado?.poligono_geojson || quarteiraoSelecionado?.geojson;
+  const poligonoSelecionado = typeof poligonoBruto === 'string'
+    ? (() => { try { return JSON.parse(poligonoBruto); } catch { return null; } })()
+    : poligonoBruto || null;
+  const centroQuarteirao = {
+    lat: Number(quarteiraoSelecionado?.latitude_quadra ?? quarteiraoSelecionado?.latitude) || -8.3797,
+    lng: Number(quarteiraoSelecionado?.longitude_quadra ?? quarteiraoSelecionado?.longitude) || -35.4508,
+  };
 
   const totalItens = imoveisFiltrados.length;
   const totalPaginas = Math.ceil(totalItens / itensPorPagina);
@@ -161,6 +188,7 @@ const CadastroImovel: React.FC = () => {
       tipo: 'R-Residência',
       status: 'Ativo',
     });
+    setDropdownAberto(null);
     setModalVisible(true);
   };
 
@@ -181,6 +209,7 @@ const CadastroImovel: React.FC = () => {
       tipo: imovel.tipo || 'R-Residência',
       status: imovel.status || 'Ativo',
     });
+    setDropdownAberto(null);
     setModalVisible(true);
   };
 
@@ -255,6 +284,47 @@ const CadastroImovel: React.FC = () => {
       },
     ]);
   };
+
+  const renderImovelCard = (imovel: Imovel) => (
+    <View key={imovel.id_imovel} style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderLeft}>
+          <View style={[styles.numeroContainer, { backgroundColor: colors.primary }]}>
+            <Ionicons name="business-outline" size={22} color="#FFFFFF" />
+          </View>
+          <View style={styles.nomeContainer}>
+            <Text style={[styles.nomeText, { color: colors.text }]}>Imóvel {imovel.seq1}</Text>
+            <Text style={[styles.numeroQuarteiraoText, { color: colors.textSecondary }]} numberOfLines={1}>
+              {imovel.nome_logradouro || 'S/N'} · Nº {imovel.numero || 'S/N'}
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.statusPill, imovel.status === 'Ativo' ? styles.activePill : styles.inactivePill]}>
+          <Text style={[styles.statusPillText, imovel.status === 'Ativo' ? styles.activePillText : styles.inactivePillText]}>{imovel.status}</Text>
+        </View>
+      </View>
+
+      <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.tableHeaderText, { color: colors.textSecondary }, styles.detailColumn]}>DETALHES</Text>
+        <Text style={[styles.tableHeaderText, { color: colors.textSecondary }, styles.actionsColumn]}>AÇÕES</Text>
+      </View>
+
+      <View style={styles.imovelRow}>
+        <View style={styles.detailColumn}>
+          <Text style={[styles.detailValue, { color: colors.text }]}>{imovel.nome_quadra || 'Quarteirão'}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{imovel.tipo || 'Tipo não informado'}</Text>
+        </View>
+        <View style={[styles.rowActions, styles.actionsColumn]}>
+          <TouchableOpacity style={styles.rowActionButton} onPress={() => abrirModalEdicao(imovel)}>
+            <Ionicons name="create-outline" size={16} color="#1769E0" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.rowActionButton, styles.rowDeleteButton]} onPress={() => excluirImovel(imovel.id_imovel)}>
+            <Ionicons name="trash-outline" size={16} color="#E11D48" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -342,51 +412,7 @@ const CadastroImovel: React.FC = () => {
       ) : (
         <View style={{ flex: 1 }}>
           <ScrollView style={styles.scrollContainer} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-            {imoveisPagina.map((imovel) => (
-              <View key={imovel.id_imovel} style={[styles.card, { backgroundColor: colors.card }]}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardHeaderLeft}>
-                    <View style={[styles.numeroContainer, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.numeroText}>#{imovel.seq1}</Text>
-                    </View>
-                    <View style={styles.nomeContainer}>
-                      <Text style={[styles.nomeText, { color: colors.text }]}>🏢 {imovel.nome_logradouro || 'S/N'}</Text>
-                      <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>Nº {imovel.numero || 'S/N'}</Text>
-                    </View>
-                  </View>
-                  <View style={[
-                    styles.statusContainer,
-                    { backgroundColor: imovel.status === 'Ativo' ? '#4CAF50' : '#FF9800' }
-                  ]}>
-                    <Text style={styles.statusText}>
-                      {imovel.status === 'Ativo' ? '✅' : '⏸️'}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={[styles.cardDetails, { borderTopColor: colors.border }]}>
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>🏠 Quarteirão:</Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>{imovel.nome_quadra}</Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>📋 Tipo:</Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>{imovel.tipo}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={[styles.cardActions, { borderTopColor: colors.border }]}>
-                  <TouchableOpacity style={styles.editButton} onPress={() => abrirModalEdicao(imovel)}>
-                    <Text style={styles.actionButtonText}>✏️ Editar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.deleteButton} onPress={() => excluirImovel(imovel.id_imovel)}>
-                    <Text style={styles.actionButtonText}>🗑️ Excluir</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+            {imoveisPagina.map(renderImovelCard)}
           </ScrollView>
 
           {totalItens > itensPorPagina && (
@@ -396,12 +422,8 @@ const CadastroImovel: React.FC = () => {
                 onPress={() => paginaAtual > 1 && setPaginaAtual(paginaAtual - 1)}
                 disabled={paginaAtual === 1}
               >
-                <Text style={[
-                  styles.navButtonText,
-                  paginaAtual === 1 && styles.navButtonTextDisabled
-                ]}>
-                  ⬅️ Anterior
-                </Text>
+                <Ionicons name="chevron-back" size={18} color={paginaAtual === 1 ? colors.textSecondary : colors.text} />
+                <Text style={[styles.navButtonText, { color: colors.text }, paginaAtual === 1 && styles.navButtonTextDisabled]}>Anterior</Text>
               </TouchableOpacity>
 
               <View style={styles.paginasContainer}>
@@ -434,12 +456,8 @@ const CadastroImovel: React.FC = () => {
                 onPress={() => paginaAtual < totalPaginas && setPaginaAtual(paginaAtual + 1)}
                 disabled={paginaAtual === totalPaginas}
               >
-                <Text style={[
-                  styles.navButtonText,
-                  paginaAtual === totalPaginas && styles.navButtonTextDisabled
-                ]}>
-                  Próxima ➡️
-                </Text>
+                <Text style={[styles.navButtonText, { color: colors.text }, paginaAtual === totalPaginas && styles.navButtonTextDisabled]}>Próxima</Text>
+                <Ionicons name="chevron-forward" size={18} color={paginaAtual === totalPaginas ? colors.textSecondary : colors.text} />
               </TouchableOpacity>
             </View>
           )}
@@ -457,128 +475,94 @@ const CadastroImovel: React.FC = () => {
         </View>
       )}
 
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => { setDropdownAberto(null); setModalVisible(false); }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>{editando ? '✏️ Editar' : '➕ Novo'}</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text style={{ fontSize: 24 }}>✕</Text>
-              </TouchableOpacity>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{editando ? 'Editar Imóvel' : 'Cadastrar Imóvel'}</Text>
+              <TouchableOpacity onPress={() => { setDropdownAberto(null); setModalVisible(false); }}><Text style={styles.modalClose}>×</Text></TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalForm}>
-              <Text style={[styles.label, { color: colors.text }]}>Quarteirão *</Text>
-              <View style={[styles.pickerContainer, { borderColor: colors.border, backgroundColor: colors.input }]}>
-                <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
-                  {quarteiroes.map((q) => (
-                    <TouchableOpacity 
-                      key={q.id_quadra} 
-                      style={[
-                        styles.pickerOption,
-                        formData.id_quarteirao === q.id_quadra.toString() && styles.pickerOptionSelected
-                      ]} 
-                      onPress={() => setFormData({ ...formData, id_quarteirao: q.id_quadra.toString() })}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.pickerOptionText,
-                        formData.id_quarteirao === q.id_quadra.toString() && styles.pickerOptionTextSelected
-                      ]}>
-                        {formData.id_quarteirao === q.id_quadra.toString() ? '✓ ' : ''}{q.nome_quadra}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+            <ScrollView style={styles.modalForm} contentContainerStyle={styles.modalFormContent} keyboardShouldPersistTaps="handled">
+              <View style={styles.formRow}>
+                <View style={[styles.formField, styles.fieldWide]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Selecione o quarteirão</Text>
+                  <DropdownField label={quarteiroes.find((q) => q.id_quadra.toString() === formData.id_quarteirao)?.nome_quadra || 'Selecione'} onPress={() => setDropdownAberto('quarteirao')} />
+                </View>
+                <View style={[styles.formField, styles.fieldSmall]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Sequência</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} value={formData.seq1} onChangeText={(text) => setFormData({ ...formData, seq1: text })} keyboardType="numeric" />
+                </View>
+                <View style={[styles.formField, styles.fieldFace]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Face (opcional)</Text>
+                  <DropdownField label={facesFiltradas.find((f) => f.id_face.toString() === formData.id_face) ? `Face #${facesFiltradas.find((f) => f.id_face.toString() === formData.id_face).numero_face}` : 'Selecione um quarteirão'} onPress={() => setDropdownAberto('face')} />
+                </View>
               </View>
 
-              <Text style={[styles.label, { color: colors.text }]}>Sequência *</Text>
-              <TextInput 
-                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} 
-                placeholder="Ex: 1"
-                placeholderTextColor={colors.placeholder}
-                value={formData.seq1} 
-                onChangeText={(text) => setFormData({ ...formData, seq1: text })} 
-                keyboardType="numeric"
-                editable={true}
-                selectTextOnFocus={true}
-              />
-
-              <Text style={[styles.label, { color: colors.text }]}>Face *</Text>
-              <View style={[styles.pickerContainer, { borderColor: colors.border, backgroundColor: colors.input }]}>
-                <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
-                  {facesFiltradas.map((f) => (
-                    <TouchableOpacity 
-                      key={f.id_face} 
-                      style={[
-                        styles.pickerOption,
-                        formData.id_face === f.id_face.toString() && styles.pickerOptionSelected
-                      ]} 
-                      onPress={() => setFormData({ ...formData, id_face: f.id_face.toString() })}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.pickerOptionText,
-                        formData.id_face === f.id_face.toString() && styles.pickerOptionTextSelected
-                      ]}>
-                        {formData.id_face === f.id_face.toString() ? '✓ ' : ''}Face #{f.numero_face}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+              <View style={styles.formRow}>
+                <View style={[styles.formField, styles.fieldLogradouro]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Logradouro</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} value={formData.nome_logradouro} onChangeText={(text) => setFormData({ ...formData, nome_logradouro: text.toUpperCase() })} autoCapitalize="characters" />
+                </View>
+                <View style={[styles.formField, styles.fieldSmall]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Nº do Imóvel</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} value={formData.numero} onChangeText={(text) => setFormData({ ...formData, numero: text })} />
+                </View>
+                <View style={[styles.formField, styles.fieldSmall]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Seq</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} value={formData.seq} onChangeText={(text) => setFormData({ ...formData, seq: text })} />
+                </View>
               </View>
 
-              <Text style={[styles.label, { color: colors.text }]}>Logradouro</Text>
-              <TextInput 
-                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} 
-                placeholder="Ex: Rua das Flores"
-                placeholderTextColor={colors.placeholder}
-                value={formData.nome_logradouro} 
-                onChangeText={(text) => setFormData({ ...formData, nome_logradouro: text.toUpperCase() })} 
-                autoCapitalize="characters"
-                editable={true}
-                selectTextOnFocus={true}
-              />
-
-              <Text style={[styles.label, { color: colors.text }]}>Número</Text>
-              <TextInput 
-                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} 
-                placeholder="Ex: 123"
-                placeholderTextColor={colors.placeholder}
-                value={formData.numero} 
-                onChangeText={(text) => setFormData({ ...formData, numero: text })}
-                editable={true}
-                selectTextOnFocus={true}
-              />
-
-              <Text style={[styles.label, { color: colors.text }]}>Tipo</Text>
-              <View style={[styles.pickerContainer, { borderColor: colors.border, backgroundColor: colors.input }]}>
-                <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
-                  {TIPOS_IMOVEL.map((tipo) => (
-                    <TouchableOpacity 
-                      key={tipo} 
-                      style={[
-                        styles.pickerOption,
-                        formData.tipo === tipo && styles.pickerOptionSelected
-                      ]} 
-                      onPress={() => setFormData({ ...formData, tipo })}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.pickerOptionText,
-                        formData.tipo === tipo && styles.pickerOptionTextSelected
-                      ]}>
-                        {formData.tipo === tipo ? '✓ ' : ''}{tipo}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+              <View style={styles.formRow}>
+                <View style={[styles.formField, styles.fieldWide]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Complemento</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} placeholder="Complemento" placeholderTextColor={colors.placeholder} />
+                </View>
+                <View style={[styles.formField, styles.fieldWide]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Tipo de Imóvel</Text>
+                  <DropdownField label={formData.tipo} onPress={() => setDropdownAberto('tipo')} />
+                </View>
+                <View style={[styles.formField, styles.fieldSmall]}>
+                  <Text style={[styles.label, { color: colors.text }]}>Status</Text>
+                  <DropdownField label={formData.status} onPress={() => setDropdownAberto('status')} />
+                </View>
               </View>
+
+              <View style={styles.formField}>
+                <Text style={[styles.label, { color: colors.text }]}>Responsável</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input, color: colors.text }]} placeholder="Responsável" placeholderTextColor={colors.placeholder} />
+              </View>
+
+              <TouchableOpacity style={[styles.locationButton, { borderColor: colors.location }]}>
+                <Ionicons name="locate-outline" size={18} color={colors.location} />
+                <Text style={[styles.locationButtonText, { color: colors.location }]}>Detectar localização atual</Text>
+              </TouchableOpacity>
+              <QuarteiraoMapWebView key={formData.id_quarteirao || 'sem-quarteirao'} initialPolygon={poligonoSelecionado} initialCenter={centroQuarteirao} interactive={false} height={300} />
             </ScrollView>
             <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
               <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.primary }]} onPress={salvarImovel}>
-                <Text style={styles.saveButtonText}>{editando ? '💾 Atualizar' : '✅ Cadastrar'}</Text>
+                <Ionicons name={editando ? 'save-outline' : 'checkmark-circle-outline'} size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>{editando ? 'Atualizar' : 'Cadastrar'}</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={dropdownAberto !== null} transparent animationType="fade" onRequestClose={() => setDropdownAberto(null)}>
+        <View style={styles.selectorOverlay}>
+          <View style={[styles.selectorContent, { backgroundColor: colors.card }]}>
+            <View style={styles.selectorHeader}>
+              <Text style={[styles.selectorTitle, { color: colors.text }]}>
+                {dropdownAberto === 'quarteirao' ? 'Selecione o quarteirão' : dropdownAberto === 'face' ? 'Selecione a face' : dropdownAberto === 'tipo' ? 'Tipo de imóvel' : 'Status'}
+              </Text>
+              <TouchableOpacity onPress={() => setDropdownAberto(null)}><Text style={[styles.selectorClose, { color: colors.text }]}>×</Text></TouchableOpacity>
+            </View>
+            <ScrollView style={styles.selectorList} contentContainerStyle={styles.selectorListContent} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
+              {dropdownAberto === 'quarteirao' && quarteiroes.map((q) => <DropdownOption key={q.id_quadra} label={`${q.nome_quadra} - Nº ${q.numero_quadra}`} selected={formData.id_quarteirao === q.id_quadra.toString()} onPress={() => { setFormData({ ...formData, id_quarteirao: q.id_quadra.toString(), id_face: '' }); setDropdownAberto(null); }} />)}
+              {dropdownAberto === 'face' && facesFiltradas.map((f) => <DropdownOption key={f.id_face} label={`Face #${f.numero_face}`} selected={formData.id_face === f.id_face.toString()} onPress={() => { setFormData({ ...formData, id_face: f.id_face.toString() }); setDropdownAberto(null); }} />)}
+              {dropdownAberto === 'tipo' && TIPOS_IMOVEL.map((tipo) => <DropdownOption key={tipo} label={tipo} selected={formData.tipo === tipo} onPress={() => { setFormData({ ...formData, tipo }); setDropdownAberto(null); }} />)}
+              {dropdownAberto === 'status' && (['Ativo', 'Inativo'] as const).map((status) => <DropdownOption key={status} label={status} selected={formData.status === status} onPress={() => { setFormData({ ...formData, status }); setDropdownAberto(null); }} />)}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -625,9 +609,24 @@ const styles = StyleSheet.create({
   numeroText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
   nomeContainer: { flex: 1 },
   nomeText: { fontSize: 16, fontWeight: 'bold', marginBottom: 2 },
+  numeroQuarteiraoText: { fontSize: 11, letterSpacing: 0.35, fontWeight: '600' },
   subtitleText: { fontSize: 13 },
   statusContainer: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, minWidth: 40, alignItems: 'center' },
   statusText: { fontSize: 16 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, minWidth: 64 },
+  activePill: { backgroundColor: '#DCFCE7' },
+  inactivePill: { backgroundColor: '#FEE2E2' },
+  activePillText: { color: '#166534' },
+  inactivePillText: { color: '#991B1B' },
+  statusPillText: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', paddingTop: 14, paddingBottom: 8, borderBottomWidth: 1 },
+  tableHeaderText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.4 },
+  detailColumn: { flex: 1 },
+  actionsColumn: { width: 90 },
+  imovelRow: { flexDirection: 'row', alignItems: 'center', paddingTop: 10 },
+  rowActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  rowActionButton: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF5FF' },
+  rowDeleteButton: { backgroundColor: '#FFF1F2' },
   cardDetails: { marginBottom: 12, paddingTop: 12, borderTopWidth: 1 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   detailItem: { flex: 1 },
@@ -639,7 +638,7 @@ const styles = StyleSheet.create({
   deleteButton: { borderColor: '#FF5252', backgroundColor: '#FFEBEE' },
   actionButtonText: { fontSize: 13, fontWeight: '600' },
   paginacaoContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1 },
-  navButton: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#F5F5F7' },
+  navButton: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#F5F5F7' },
   navButtonDisabled: { backgroundColor: '#F0F0F0', opacity: 0.5 },
   navButtonText: { fontSize: 13, color: '#333', fontWeight: '600' },
   navButtonTextDisabled: { color: '#999' },
@@ -651,11 +650,35 @@ const styles = StyleSheet.create({
   paginationInfo: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1 },
   paginationText: { fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  modalForm: { padding: 20 },
-  label: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 12 },
+  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '94%', overflow: 'visible' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, backgroundColor: '#35B7C9' },
+  modalTitle: { fontSize: 21, fontWeight: 'bold', color: '#FFFFFF' },
+  modalClose: { color: '#FFFFFF', fontSize: 30, lineHeight: 30, fontWeight: '300' },
+  modalForm: { paddingHorizontal: 20, paddingTop: 8 },
+  modalFormContent: { paddingBottom: 24 },
+  formRow: { flexDirection: 'column', alignItems: 'stretch', marginBottom: 0 },
+  formField: { width: '100%', marginBottom: 16, zIndex: 1 },
+  fieldWide: { flex: 0, width: '100%' },
+  fieldSmall: { flex: 0, width: '100%' },
+  fieldFace: { flex: 0, width: '100%' },
+  fieldLogradouro: { flex: 0, width: '100%' },
+  dropdownWrapper: { position: 'relative', zIndex: 20 },
+  dropdownField: { height: 46, paddingHorizontal: 12, borderWidth: 1, borderColor: '#D8DEEC', borderRadius: 7, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dropdownLabel: { color: '#163BFF', fontSize: 16, fontWeight: '700', flex: 1 },
+  dropdownArrow: { color: '#163BFF', fontSize: 22, marginLeft: 6 },
+  dropdownOption: { paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EEF1F5' },
+  dropdownOptionText: { fontSize: 14, color: '#334155' },
+  dropdownOptionSelected: { color: '#163BFF', fontWeight: '700' },
+  selectorOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.45)' },
+  selectorContent: { maxHeight: '70%', borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
+  selectorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#D8DEEC' },
+  selectorTitle: { fontSize: 18, fontWeight: '700' },
+  selectorClose: { fontSize: 28, lineHeight: 28, paddingHorizontal: 4 },
+  selectorList: { flexGrow: 0 },
+  selectorListContent: { paddingBottom: 20 },
+  locationButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', borderWidth: 1, borderRadius: 4, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 8, gap: 7 },
+  locationButtonText: { fontSize: 15, fontWeight: '600' },
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, minHeight: 48, backgroundColor: '#FAFAFA' },
   pickerContainer: { borderWidth: 1, borderRadius: 8, maxHeight: 150, backgroundColor: '#FAFAFA', borderColor: '#E5E5EA' },
   pickerScroll: { maxHeight: 150 },
@@ -664,7 +687,7 @@ const styles = StyleSheet.create({
   pickerOptionText: { fontSize: 16, color: '#333' },
   pickerOptionTextSelected: { color: '#4CAF50', fontWeight: '600' },
   modalFooter: { padding: 20, borderTopWidth: 1 },
-  modalButton: { padding: 16, borderRadius: 8, alignItems: 'center' },
+  modalButton: { flexDirection: 'row', justifyContent: 'center', gap: 8, padding: 16, borderRadius: 8, alignItems: 'center' },
   saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
 

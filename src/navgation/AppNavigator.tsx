@@ -26,8 +26,6 @@ import ProducaoHistorico from '../screens/screensProducao/ProducaoHistorico';
 
 // TELAS DE RELATÓRIOS
 import RelatorioGeral from '../screens/screensRelatorio/RelatorioGeral';
-import RelatorioFinanceiro from '../screens/screensRelatorio/RelatorioFinanceiro';
-import ExportarDados from '../screens/screensOutros/ExportarDados';
 
 // TELAS DE MAPAS
 import MapaQuarteiroes from '../screens/screensMapa/MapaQuarteiroes';
@@ -65,8 +63,6 @@ export type RootStackParamList = {
   
   // Relatórios
   RelatorioGeral: undefined;
-  RelatorioFinanceiro: undefined;
-  ExportarDados: undefined;
   
   // Mapas
   MapaQuarteiroes: undefined;
@@ -217,26 +213,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen 
               name="RelatorioGeral" 
               component={RelatorioGeral}
-              options={{ title: 'Relatório Geral' , 
-              
-
-              }}
-            />
-            <Stack.Screen 
-              name="RelatorioFinanceiro" 
-              component={RelatorioFinanceiro}
-              options={{ title: 'Relatório Financeiro' , 
-              
-
-              }}
-            />
-            <Stack.Screen 
-              name="ExportarDados" 
-              component={ExportarDados}
-              options={{ title: 'Exportar Dados' , 
-              
-
-              }}
+              options={{ title: 'Relatório de Atividades' }}
             />
             
             {/* TELAS DE MAPAS */}

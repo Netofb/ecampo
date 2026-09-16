@@ -11,12 +11,16 @@ import {
   SafeAreaView,
   StatusBar,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { faceService, quarteiraoService, authService } from '../../services/api';
 import { addFaceLocal, listFacesLocais } from '../../services/faceLocal';
+import FacesMapWebView from '../../components/FacesMapWebView';
+import FaceLineMapEditor, { FaceLineMapData } from '../../components/FaceLineMapEditor';
 
 interface Face {
   id_face: number;
@@ -25,6 +29,10 @@ interface Face {
   nome_quadra: string;
   numero_quadra: number;
   status: 'Ativo' | 'Inativo';
+  linha_geojson?: object | string | null;
+  cor_linha?: string;
+  latitude?: string | number;
+  longitude?: string | number;
 }
 
 const CadastroFace: React.FC = () => {
@@ -49,6 +57,10 @@ const CadastroFace: React.FC = () => {
   const [faces, setFaces] = useState<Face[]>([]);
   const [quarteiroes, setQuarteiroes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [mapRefreshKey, setMapRefreshKey] = useState(0);
+  const [faceMapData, setFaceMapData] = useState<FaceLineMapData | null>(null);
+  const [faceColor] = useState('#1565C0');
+  const [seletorAberto, setSeletorAberto] = useState<'status' | 'quarteirao' | null>(null);
 
   const facesFiltradas = faces.filter(face =>
     face.numero_face.toString().includes(busca) ||
@@ -124,6 +136,8 @@ const CadastroFace: React.FC = () => {
       nome_linha: '',
       status: 'Ativo',
     });
+    setFaceMapData(null);
+    setSeletorAberto(null);
     setModalVisible(true);
   };
 
@@ -136,6 +150,11 @@ const CadastroFace: React.FC = () => {
       nome_linha: (face as any).nome_linha || '',
       status: face.status,
     });
+    const linhaExistente = typeof face.linha_geojson === 'string' ? (() => {
+      try { return JSON.parse(face.linha_geojson); } catch { return null; }
+    })() : face.linha_geojson;
+    setFaceMapData(linhaExistente ? { geojson: linhaExistente, centroid: { lat: Number(face.latitude), lng: Number(face.longitude) } } : null);
+    setSeletorAberto(null);
     setModalVisible(true);
   };
 
@@ -152,6 +171,10 @@ const CadastroFace: React.FC = () => {
           id_quarteirao: parseInt(formData.id_quarteirao),
           nome_linha: formData.nome_linha,
           status: formData.status,
+          linha_geojson: faceMapData?.geojson,
+          cor_linha: faceColor,
+          latitude: faceMapData?.centroid.lat,
+          longitude: faceMapData?.centroid.lng,
         });
         Alert.alert('✅ Sucesso', 'Face atualizada com sucesso!');
       } else {
@@ -160,11 +183,16 @@ const CadastroFace: React.FC = () => {
           id_quarteirao: parseInt(formData.id_quarteirao),
           nome_linha: formData.nome_linha,
           status: formData.status,
+          linha_geojson: faceMapData?.geojson,
+          cor_linha: faceColor,
+          latitude: faceMapData?.centroid.lat,
+          longitude: faceMapData?.centroid.lng,
         });
         Alert.alert('✅ Sucesso', 'Face cadastrada com sucesso!');
       }
       
       await carregarFaces();
+      setMapRefreshKey((value) => value + 1);
       setModalVisible(false);
     } catch (error: any) {
       if (!error?.response) {
@@ -173,8 +201,13 @@ const CadastroFace: React.FC = () => {
           id_quarteirao: parseInt(formData.id_quarteirao),
           nome_linha: formData.nome_linha,
           status: formData.status,
+          linha_geojson: faceMapData?.geojson,
+          cor_linha: faceColor,
+          latitude: faceMapData?.centroid.lat,
+          longitude: faceMapData?.centroid.lng,
         });
         await carregarFaces();
+        setMapRefreshKey((value) => value + 1);
         setModalVisible(false);
         Alert.alert('Salvo offline', 'Face gravada localmente e marcada para sincronização.');
         return;
@@ -206,46 +239,46 @@ const CadastroFace: React.FC = () => {
     );
   };
 
-  const renderFaceItem = (face: Face) => {
+  const renderFaceCard = (face: Face) => {
     return (
       <View style={styles.card} key={face.id_face}>
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderLeft}>
             <View style={styles.numeroContainer}>
-              <Text style={styles.numeroText}>#{face.numero_face}</Text>
+              <Ionicons name="git-branch-outline" size={22} color="#FFFFFF" />
             </View>
             <View style={styles.nomeContainer}>
-              <Text style={styles.nomeText}>{face.nome_quadra || 'Quarteirão'}</Text>
-              <Text style={styles.numeroQuarteiraoText}>Nº {face.numero_quadra}</Text>
+              <Text style={styles.nomeText}>Face {face.numero_face}</Text>
+              <Text style={styles.numeroQuarteiraoText}>{face.nome_quadra || 'Quarteirão'} · QUARTEIRÃO {face.numero_quadra || '-'}</Text>
             </View>
           </View>
-          
-          <View style={[
-            styles.statusContainer,
-            { backgroundColor: face.status === 'Ativo' ? '#4CAF50' : '#FF9800' }
-          ]}>
-            <Text style={styles.statusText}>
-              {face.status === 'Ativo' ? 'Ativo' : 'Inativo'}
+          <View style={[styles.statusPill, face.status === 'Ativo' ? styles.activePill : styles.inactivePill]}>
+            <Text style={[styles.statusPillText, face.status === 'Ativo' ? styles.activePillText : styles.inactivePillText]}>
+              {face.status}
             </Text>
           </View>
         </View>
 
-        <View style={styles.cardActions}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.editButton]}
-            onPress={() => abrirModalEdicao(face)}
-          >
-            <Ionicons name="create-outline" size={16} color="#2196F3" />
-            <Text style={[styles.actionButtonText, {color: '#2196F3', marginLeft: 4}]}>Editar</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => excluirFace(face.id_face)}
-          >
-            <Ionicons name="trash-outline" size={16} color="#FF5252" />
-            <Text style={[styles.actionButtonText, {color: '#FF5252', marginLeft: 4}]}>Excluir</Text>
-          </TouchableOpacity>
+        <FacesMapWebView refreshKey={mapRefreshKey} faceId={face.id_face} />
+
+        <View style={styles.tableHeader}>
+          <Text style={[styles.tableHeaderText, styles.nameColumn]}>NOME DA LINHA</Text>
+          <Text style={[styles.tableHeaderText, styles.actionsColumn]}>AÇÕES</Text>
+        </View>
+
+        <View style={styles.faceRow}>
+          <View style={[styles.faceColumn, styles.faceNumberCell]}>
+            <View style={styles.faceLine} />
+            <Text style={styles.faceNumberText}>{(face as any).nome_linha || 'Linha da face'}</Text>
+          </View>
+          <View style={[styles.rowActions, styles.actionsColumn]}>
+            <TouchableOpacity style={styles.rowActionButton} onPress={() => abrirModalEdicao(face)}>
+              <Ionicons name="create-outline" size={16} color="#1769E0" />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.rowActionButton, styles.rowDeleteButton]} onPress={() => excluirFace(face.id_face)}>
+              <Ionicons name="trash-outline" size={16} color="#E11D48" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -341,7 +374,7 @@ const CadastroFace: React.FC = () => {
             }
           >
             <View style={styles.facesList}>
-              {facesPagina.map(renderFaceItem)}
+              {facesPagina.map(renderFaceCard)}
             </View>
           </ScrollView>
 
@@ -406,24 +439,28 @@ const CadastroFace: React.FC = () => {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => { setSeletorAberto(null); setModalVisible(false); }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editando ? 'Editar Face' : 'Nova Face'}
               </Text>
               <TouchableOpacity 
-                onPress={() => setModalVisible(false)}
+                onPress={() => { setSeletorAberto(null); setModalVisible(false); }}
                 style={styles.closeButton}
               >
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalForm}>
-              <View style={styles.inputGroup}>
+            <ScrollView style={styles.modalForm} contentContainerStyle={styles.modalFormContent} keyboardShouldPersistTaps="handled">
+              <View style={[styles.formColumns, editando && styles.formColumnsVertical]}>
+              <View style={[styles.inputGroup, styles.columnSmall]}>
                 <Text style={styles.label}>Número da Face *</Text>
                 <TextInput
                   style={styles.input}
@@ -434,34 +471,24 @@ const CadastroFace: React.FC = () => {
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Quarteirão *</Text>
-                <View style={styles.pickerContainer}>
-                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
-                    {quarteiroes.map((q) => (
-                      <TouchableOpacity
-                        key={q.id_quadra}
-                        style={[
-                          styles.pickerOption,
-                          formData.id_quarteirao === q.id_quadra.toString() && styles.pickerOptionSelected
-                        ]}
-                        onPress={() => setFormData({ ...formData, id_quarteirao: q.id_quadra.toString() })}
-                      >
-                        <Text style={[
-                          styles.pickerOptionText,
-                          formData.id_quarteirao === q.id_quadra.toString() && styles.pickerOptionTextSelected
-                        ]}>
-                          {formData.id_quarteirao === q.id_quadra.toString() ? '✓ ' : ''}
-                          {q.nome_quadra} - Nº {q.numero_quadra}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
+              <View style={[styles.inputGroup, styles.columnSmall]}>
+                <Text style={styles.label}>Status</Text>
+                <TouchableOpacity style={styles.selectField} onPress={() => setSeletorAberto('status')}>
+                  <Text style={styles.selectText}>{formData.status}</Text><Ionicons name="chevron-down" size={18} color="#163BFF" />
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nome da Linha/Polígono da Face</Text>
+              <View style={[styles.inputGroup, styles.columnMedium]}>
+                <Text style={styles.label}>Selecione o quarteirão *</Text>
+                <TouchableOpacity style={styles.selectField} onPress={() => setSeletorAberto('quarteirao')}>
+                  <Text style={styles.selectText} numberOfLines={1}>{quarteiroes.find((q) => q.id_quadra.toString() === formData.id_quarteirao)?.nome_quadra || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color="#163BFF" />
+                </TouchableOpacity>
+              </View>
+              </View>
+
+              <View style={[styles.formColumns, editando && styles.formColumnsVertical]}>
+              <View style={[styles.inputGroup, styles.columnWide]}>
+                <Text style={styles.label}>Nome da linha/polígono da face</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ex: Face norte, lado ímpar, quadra inteira"
@@ -471,42 +498,26 @@ const CadastroFace: React.FC = () => {
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Status</Text>
-                <View style={styles.radioGroup}>
-                  <TouchableOpacity
-                    key="ativo"
-                    style={styles.radioButton}
-                    onPress={() => setFormData({ ...formData, status: 'Ativo' })}
-                  >
-                    <Ionicons 
-                      name={formData.status === 'Ativo' ? 'radio-button-on' : 'radio-button-off'} 
-                      size={24} 
-                      color={formData.status === 'Ativo' ? '#4CAF50' : '#999'} 
-                    />
-                    <Text style={styles.radioLabel}>Ativo</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    key="inativo"
-                    style={styles.radioButton}
-                    onPress={() => setFormData({ ...formData, status: 'Inativo' })}
-                  >
-                    <Ionicons 
-                      name={formData.status === 'Inativo' ? 'radio-button-on' : 'radio-button-off'} 
-                      size={24} 
-                      color={formData.status === 'Inativo' ? '#FF9800' : '#999'} 
-                    />
-                    <Text style={styles.radioLabel}>Inativo</Text>
-                  </TouchableOpacity>
-                </View>
+              <View style={[styles.inputGroup, styles.colorGroup]}>
+                <Text style={styles.label}>Cor da linha/polígono</Text>
+                <View style={[styles.colorSwatch, { backgroundColor: faceColor }]} />
               </View>
+              </View>
+
+              <View style={styles.helpBox}><Text style={styles.helpTitle}>ⓘ Selecione o quarteirão e escolha uma ou mais arestas:</Text><Text style={styles.helpText}>• As arestas disponíveis aparecem sobre o quarteirão selecionado.{`\n`}• Desenhe a linha da face no mapa abaixo.{`\n`}• A linha escolhida será gravada como a geometria da face.</Text></View>
+              <FaceLineMapEditor
+                height={220}
+                center={(() => { const q = quarteiroes.find((item) => item.id_quadra.toString() === formData.id_quarteirao); return { lat: Number(q?.latitude_quadra) || -8.3797, lng: Number(q?.longitude_quadra) || -35.4508 }; })()}
+                initialLine={faceMapData?.geojson || null}
+                color={faceColor}
+                onLineChanged={setFaceMapData}
+              />
             </ScrollView>
 
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
+                onPress={() => { setSeletorAberto(null); setModalVisible(false); }}
               >
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
@@ -521,6 +532,26 @@ const CadastroFace: React.FC = () => {
               </TouchableOpacity>
             </View>
           </View>
+        </KeyboardAvoidingView>
+      </Modal>
+      <Modal visible={seletorAberto !== null} transparent animationType="fade" onRequestClose={() => setSeletorAberto(null)}>
+        <View style={styles.selectorOverlay}>
+          <View style={styles.selectorContent}>
+            <View style={styles.selectorHeader}>
+              <Text style={styles.selectorTitle}>{seletorAberto === 'quarteirao' ? 'Selecione o quarteirão' : 'Selecione o status'}</Text>
+              <TouchableOpacity onPress={() => setSeletorAberto(null)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#55718F" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.selectorList} contentContainerStyle={styles.selectorListContent} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
+              {seletorAberto === 'status' && (['Ativo', 'Inativo'] as const).map((status) => <TouchableOpacity key={status} style={styles.dropdownOption} onPress={() => { setFormData({ ...formData, status }); setSeletorAberto(null); }}>
+                <Text style={[styles.dropdownOptionText, formData.status === status && styles.dropdownOptionTextSelected]}>{formData.status === status ? '✓ ' : ''}{status}</Text>
+              </TouchableOpacity>)}
+              {seletorAberto === 'quarteirao' && quarteiroes.map((q) => <TouchableOpacity key={q.id_quadra} style={styles.dropdownOption} onPress={() => { setFormData({ ...formData, id_quarteirao: q.id_quadra.toString() }); setSeletorAberto(null); }}>
+                <Text style={[styles.dropdownOptionText, formData.id_quarteirao === q.id_quadra.toString() && styles.dropdownOptionTextSelected]}>{formData.id_quarteirao === q.id_quadra.toString() ? '✓ ' : ''}{q.nome_quadra} - Nº {q.numero_quadra}</Text>
+              </TouchableOpacity>)}
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -530,7 +561,7 @@ const CadastroFace: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#F4F7FB',
   },
   header: {
     flexDirection: 'row',
@@ -547,8 +578,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '800',
+    color: '#16324F',
     flex: 1,
     textAlign: 'center',
   },
@@ -566,9 +597,11 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F7',
-    borderRadius: 8,
+    backgroundColor: '#F7F9FC',
+    borderRadius: 10,
     paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E1E8F0',
   },
   searchIcon: {
     marginRight: 8,
@@ -591,16 +624,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#E3EAF3',
   },
   newButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4CAF50',
-    paddingVertical: 8,
+    backgroundColor: '#2F80ED',
+    paddingVertical: 11,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 9,
     elevation: 2,
   },
   plusIcon: {
@@ -621,7 +654,7 @@ const styles = StyleSheet.create({
   },
   itemsPerPageButtons: {
     flexDirection: 'row',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#EEF3F8',
     borderRadius: 6,
     padding: 2,
   },
@@ -641,7 +674,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   itemsPerPageButtonTextActive: {
-    color: '#4CAF50',
+    color: '#2F80ED',
   },
   loadingContainer: {
     flex: 1,
@@ -657,27 +690,29 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 14,
   },
   facesList: {
     paddingBottom: 16,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOpacity: 0.07,
+    shadowRadius: 5,
+    borderWidth: 1,
+    borderColor: '#E4EBF3',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   cardHeaderLeft: {
     flexDirection: 'row',
@@ -685,11 +720,22 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  faceCountBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#FFF7ED',
+  },
+  faceCountText: {
+    color: '#C2410C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   numeroContainer: {
-    backgroundColor: '#2196F3',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    backgroundColor: '#2F80ED',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -704,19 +750,21 @@ const styles = StyleSheet.create({
   },
   nomeText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '800',
+    color: '#17324D',
     marginBottom: 2,
   },
   numeroQuarteiraoText: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 11,
+    letterSpacing: 0.35,
+    color: '#6B86A3',
+    fontWeight: '600',
   },
   statusContainer: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 14,
-    minWidth: 70,
+    borderRadius: 999,
+    minWidth: 64,
   },
   statusText: {
     color: '#FFFFFF',
@@ -732,6 +780,100 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
   },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 14,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E7EDF4',
+  },
+  tableHeaderText: {
+    color: '#55708D',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  faceColumn: {
+    width: '31%',
+  },
+  nameColumn: {
+    width: '21%',
+  },
+  statusColumn: {
+    width: '22%',
+  },
+  actionsColumn: {
+    width: '26%',
+    alignItems: 'flex-end',
+  },
+  faceRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E7EDF4',
+  },
+  faceNumberCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  faceLine: {
+    width: 24,
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: '#3987F6',
+    marginRight: 9,
+  },
+  faceNumberText: {
+    color: '#27496B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  faceNameText: {
+    color: '#64748B',
+    fontSize: 12,
+  },
+  statusPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  activePill: {
+    backgroundColor: '#E8F9EF',
+  },
+  inactivePill: {
+    backgroundColor: '#FFF1E5',
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  activePillText: {
+    color: '#159447',
+  },
+  inactivePillText: {
+    color: '#C46A13',
+  },
+  rowActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
+  rowActionButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#BFD3EC',
+    backgroundColor: '#FFFFFF',
+  },
+  rowDeleteButton: {
+    borderColor: '#F2C4CF',
+  },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -741,12 +883,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   editButton: {
-    borderColor: '#2196F3',
-    backgroundColor: '#E3F2FD',
+    borderColor: '#B8D5F8',
+    backgroundColor: '#F1F7FF',
   },
   deleteButton: {
     borderColor: '#FF5252',
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FFF5F5',
   },
   actionButtonText: {
     fontSize: 13,
@@ -772,32 +914,85 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    maxHeight: '94%',
+    flexShrink: 1,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#E3EAF3',
+    backgroundColor: '#35B7C9',
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   closeButton: {
     padding: 4,
   },
 
   modalForm: {
-    padding: 20,
+    paddingHorizontal: 14,
+    paddingTop: 14,
   },
+  modalFormContent: {
+    paddingBottom: 8,
+  },
+  formColumns: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-end',
+  },
+  formColumnsVertical: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 0,
+  },
+  columnSmall: { flex: 1, zIndex: 20 },
+  columnMedium: { flex: 1.2, zIndex: 10 },
+  columnWide: { flex: 2.5 },
+  colorGroup: { flex: 1 },
+  selectField: {
+    height: 46,
+    borderWidth: 1,
+    borderColor: '#DCE6F0',
+    borderRadius: 8,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+  },
+  selectText: { color: '#163BFF', fontSize: 16, fontWeight: '700' },
+  dropdownOption: { paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F2F5' },
+  dropdownOptionText: { fontSize: 14, color: '#334155' },
+  dropdownOptionTextSelected: { color: '#163BFF', fontWeight: '700' },
+  selectorOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', justifyContent: 'flex-end' },
+  selectorContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', overflow: 'hidden' },
+  selectorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#DCE6F0' },
+  selectorTitle: { fontSize: 18, fontWeight: '700', color: '#17324D' },
+  selectorList: { flexGrow: 0 },
+  selectorListContent: { paddingBottom: 20 },
+  colorSwatch: { width: 68, height: 46, borderWidth: 2, borderColor: '#D5D5D5' },
+  helpBox: {
+    backgroundColor: '#E8F7FF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#2DB7C9',
+    borderRadius: 7,
+    padding: 12,
+    marginBottom: 12,
+  },
+  helpTitle: { color: '#17627A', fontSize: 13, fontWeight: '600', marginBottom: 6 },
+  helpText: { color: '#246B80', fontSize: 12, lineHeight: 19 },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   label: {
     fontSize: 14,
@@ -807,17 +1002,17 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 8,
+    borderColor: '#DCE6F0',
+    borderRadius: 10,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFD',
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 8,
-    backgroundColor: '#FAFAFA',
+    borderColor: '#DCE6F0',
+    borderRadius: 10,
+    backgroundColor: '#F8FAFD',
     maxHeight: 150,
   },
   pickerScroll: {
@@ -829,14 +1024,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   pickerOptionSelected: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EAF3FF',
   },
   pickerOptionText: {
     fontSize: 16,
     color: '#333',
   },
   pickerOptionTextSelected: {
-    color: '#4CAF50',
+    color: '#2F80ED',
     fontWeight: '600',
   },
   radioGroup: {
@@ -854,7 +1049,7 @@ const styles = StyleSheet.create({
   },
   modalFooter: {
     flexDirection: 'row',
-    padding: 20,
+    padding: 14,
     borderTopWidth: 1,
     borderTopColor: '#E5E5EA',
   },
@@ -869,7 +1064,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   saveButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#2F80ED',
     marginLeft: 8,
   },
   cancelButtonText: {
@@ -926,7 +1121,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F7',
   },
   paginaButtonActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#2F80ED',
   },
   paginaButtonText: {
     fontSize: 14,

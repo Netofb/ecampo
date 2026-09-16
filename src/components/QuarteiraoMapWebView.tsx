@@ -48,11 +48,11 @@ const buildHtml = (
     z-index:1000; display:flex; gap:6px;
   }
   .map-btn {
-    background:#fff; border:2px solid #4CAF50; color:#4CAF50;
+    background:#fff; border:2px solid #2E7D32; color:#2E7D32;
     padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600;
     cursor:pointer; white-space:nowrap;
   }
-  .map-btn.danger { border-color:#e53935; color:#e53935; }
+  .map-btn.danger { border-color:#C62828; color:#C62828; }
 </style>
 </head>
 <body>
@@ -75,7 +75,7 @@ var marker = null;
 var drawControl = new L.Control.Draw({
   edit: { featureGroup: drawnItems },
   draw: {
-    polygon: { shapeOptions: { color: '#4CAF50', fillOpacity: 0.2 } },
+    polygon: { shapeOptions: { color: '#2E7D32', fillOpacity: 0.15 } },
     polyline: false, rectangle: false, circle: false,
     circlemarker: false, marker: false
   }
@@ -194,7 +194,7 @@ function handleCommand(cmd) {
   if (cmd.type === 'SET_POLYGON' && cmd.payload) {
     drawnItems.clearLayers();
     var layer = L.geoJSON(cmd.payload, {
-      style: { color: '#4CAF50', fillOpacity: 0.2 }
+      style: { color: '#2E7D32', fillOpacity: 0.15 }
     });
     layer.eachLayer(function(l) { drawnItems.addLayer(l); });
     map.fitBounds(layer.getBounds(), { padding: [20, 20] });

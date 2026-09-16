@@ -4,7 +4,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { faceService, imovelService, localidadeService, quarteiraoService, zonaService } from '../../services/api';
 import { listAuditoriaLocal } from '../../services/auditoriaLocal';
+import { listFacesLocais } from '../../services/faceLocal';
 import { listFotosLocais } from '../../services/fotoLocal';
+import { listImoveisLocais } from '../../services/imovelLocal';
 import { listPontosLocais } from '../../services/pontoLocal';
 
 const IMPORT_KEY = '@ecampo/importacoes-locais';
@@ -21,11 +23,28 @@ function toCsv(rows: any[]) {
 }
 
 async function loadData() {
-  const [localidades, zonas, quarteiroes, faces, imoveis, fotos, pontos, auditoria] = await Promise.all([
-    localidadeService.list().catch(() => []), zonaService.list().catch(() => []), quarteiraoService.list().catch(() => []), faceService.list().catch(() => []), imovelService.list().catch(() => []),
-    listFotosLocais(), listPontosLocais(), listAuditoriaLocal(),
+  const [localidades, zonas, quarteiroes, remoteFaces, remoteImoveis, fotos, pontos, auditoria, localFaces, localImoveis] = await Promise.all([
+    localidadeService.list().catch(() => []),
+    zonaService.list().catch(() => []),
+    quarteiraoService.list().catch(() => []),
+    faceService.list().catch(() => []),
+    imovelService.list().catch(() => []),
+    listFotosLocais(),
+    listPontosLocais(),
+    listAuditoriaLocal(),
+    listFacesLocais(),
+    listImoveisLocais(),
   ]);
-  return { localidades, zonas, quarteiroes, faces, imoveis, fotos, pontos, auditoria };
+  return {
+    localidades,
+    zonas,
+    quarteiroes,
+    faces: [...remoteFaces, ...localFaces],
+    imoveis: [...remoteImoveis, ...localImoveis],
+    fotos,
+    pontos,
+    auditoria,
+  };
 }
 
 const ExportarDados: React.FC = () => {

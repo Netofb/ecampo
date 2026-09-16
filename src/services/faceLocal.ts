@@ -9,6 +9,10 @@ export type FaceLocal = {
   numero_face: number;
   nome_linha: string;
   status: 'Ativo' | 'Inativo';
+  linha_geojson?: object | null;
+  cor_linha?: string;
+  latitude?: number;
+  longitude?: number;
   createdAt: string;
   syncStatus: 'pending';
 };

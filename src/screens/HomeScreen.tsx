@@ -79,6 +79,7 @@ const HomeScreen: React.FC = () => {
   const [syncModalVisible, setSyncModalVisible] = useState(false);
   const [syncModalData, setSyncModalData] = useState({ pushedSuccess: 0, pulled: 0, pushedConflicts: 0, pushedErrors: 0 });
   const autoSyncInProgress = useRef(false);
+  const manualSyncInProgress = useRef(false);
   const profilePhotoUri = /^(https?:\/\/|data:image\/)/i.test(userPhoto) ? userPhoto : '';
 
 
@@ -118,9 +119,7 @@ const HomeScreen: React.FC = () => {
       icon: 'stats-chart-outline', 
       hasDropdown: true,
       dropdownItems: [
-        { id: 31, label: 'Relatório Geral', screen: 'RelatorioGeral', icon: 'trending-up-outline' },
-        { id: 32, label: 'Relatório Financeiro', screen: 'RelatorioFinanceiro', icon: 'cash-outline' },
-        { id: 33, label: 'Exportar Dados', screen: 'ExportarDados', icon: 'cloud-upload-outline' },
+        { id: 31, label: 'Relatório de Atividades', screen: 'RelatorioGeral', icon: 'document-text-outline' },
       ]
     },
     { 
@@ -165,7 +164,7 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(async (state) => {
-      if (!state.isConnected || autoSyncInProgress.current || syncing) return;
+      if (!state.isConnected || autoSyncInProgress.current || manualSyncInProgress.current) return;
       autoSyncInProgress.current = true;
       try {
         const result = await SyncService.sync();
@@ -196,6 +195,8 @@ const HomeScreen: React.FC = () => {
   };
 // Função para lidar com a sincronização e mostrar o modal de resultados 
   const handleSync = async () => {
+    if (manualSyncInProgress.current || autoSyncInProgress.current) return;
+    manualSyncInProgress.current = true;
     setSyncing(true);
     try {
       const result = await SyncService.sync();
@@ -212,6 +213,7 @@ const HomeScreen: React.FC = () => {
     } catch (error: any) {
       Alert.alert('Erro', error?.message ?? 'Falha na sincronização');
     } finally {
+      manualSyncInProgress.current = false;
       setSyncing(false);
     }
   };
@@ -231,7 +233,7 @@ const HomeScreen: React.FC = () => {
         { id: 1, title: 'Quarteirões Cadastrados', value: '', icon: 'location', color: '#4CAF50' },
         { id: 2, title: 'Faces cadastradas', value: '', icon: 'home', color: '#2196F3' },
         { id: 3, title: 'Imóveis Cadastrados', value: '', icon: 'business', color: '#FF9800' },
-        { id: 4, title: 'Localidades Cadastradas', value: '', icon: 'map', color: '#9C27B0' },
+        { id: 4, title: 'Localidades Cadastradas', value: '', icon: 'map', color: colors.location },
       ]);
       setLoading(false);
     } catch (error) {
@@ -278,7 +280,7 @@ const HomeScreen: React.FC = () => {
           title: 'Localidades Cadastradas',
           value: String(data.localidades || 0),
           icon: 'map',
-          color: '#9C27B0',
+          color: colors.location,
         },
       ]);
     } catch (error) {
@@ -466,44 +468,38 @@ const HomeScreen: React.FC = () => {
             </View>
           )}
 
-          {/* Conteúdo Principal (Cards) */}
-          <ScrollView style={[styles.content, menuOpen && styles.contentWithMenu]}>
-            <Text style={[styles.welcomeTitle, { color: colors.text }]}>Bem-vindo de volta!</Text>
-            <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>Aqui está um resumo das suas métricas</Text>
-            
-            <View style={styles.cardsContainer}>
+          {/* Dashboard principal */}
+          <ScrollView style={[styles.content, menuOpen && styles.contentWithMenu]} contentContainerStyle={styles.dashboardContent}>
+            <View style={styles.dashboardCards}>
               {cards.map((card) => (
-                <View key={card.id} style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
-                  <View style={styles.cardHeader}>
-                    <View style={[styles.cardIconContainer, { backgroundColor: `${card.color}20` }]}>
-                      <Ionicons name={card.icon as any} size={24} color={card.color} />
-                    </View>
-                    <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>{card.title}</Text>
-                  </View>
-                  
-                  <View style={styles.cardContent}>
-                    <Text style={[styles.cardValue, { color: colors.text }]}>{card.value}</Text>
-                    {card.description && (
-                      <Text style={styles.cardDescription}>{card.description}</Text>
-                    )}
-                  </View>
-                  
-                  <TouchableOpacity 
-                    style={styles.cardButton}
-                    onPress={() => {
-                      const screen = cardNavigation[card.id];
-                      if (screen) {
-                        navigation.navigate(screen as never);
-                      }
-                    }}
-                  >
-                    <Text style={[styles.cardButtonText, { color: card.color }]}>
-                      Ver detalhes
-                    </Text>
-                    <Ionicons name="chevron-forward" size={18} color={card.color} />
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity key={card.id} activeOpacity={0.85} onPress={() => { const screen = cardNavigation[card.id]; if (screen) navigation.navigate(screen as never); }} style={[styles.dashboardCard, { backgroundColor: colors.card, borderColor: colors.border, shadowColor: colors.shadow }]}>
+                  <View style={styles.dashboardCardText}><Text style={[styles.dashboardCardTitle, { color: colors.textSecondary }]}>{card.title}</Text><Text style={[styles.dashboardCardValue, { color: colors.text }]}>{card.value || '0'}</Text></View>
+                  <View style={[styles.dashboardIcon, { backgroundColor: `${card.color}18` }]}><Ionicons name={card.icon as any} size={27} color={card.color} /></View>
+                </TouchableOpacity>
               ))}
+            </View>
+
+            <View style={styles.dashboardColumns}>
+              <View style={[styles.chartPanel, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.chartTitle, { color: colors.text }]}>Visitas Realizadas nos Últimos 7 Dias</Text>
+                <View style={styles.chartLegend}><View style={styles.legendLine} /><Text style={[styles.legendText, { color: colors.textSecondary }]}>Visitas de Imóveis</Text></View>
+                <View style={styles.chartArea}>
+                  <View style={styles.chartYAxis}><Text style={styles.axisText}>1</Text><Text style={styles.axisText}>0</Text><Text style={styles.axisText}>0</Text><Text style={styles.axisText}>0</Text><Text style={styles.axisText}>0</Text></View>
+                  <View style={styles.chartPlot}>
+                    {[0, 1, 2, 3, 4].map(row => <View key={row} style={styles.chartGridLine} />)}
+                    <View style={styles.chartBaseline} />
+                    <View style={styles.chartPoints}>{Array.from({ length: 7 }).map((_, index) => <View key={index} style={styles.chartPoint} />)}</View>
+                    <View style={styles.chartLabels}>{['09/SEP', '10/SEP', '11/SEP', '12/SEP', '13/SEP', '14/SEP', '15/SEP'].map(label => <Text key={label} style={styles.axisText}>{label}</Text>)}</View>
+                  </View>
+                </View>
+                <Text style={[styles.axisCaption, { color: colors.textSecondary }]}>Data</Text>
+              </View>
+
+              <View style={[styles.summaryPanel, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.chartTitle, { color: colors.text }]}>Resumo por dia</Text>
+                <View style={styles.summarySpace} />
+                <View style={styles.summaryLegend}>{['09/SEP', '10/SEP', '11/SEP', '12/SEP', '13/SEP', '14/SEP', '15/SEP'].map((label, index) => <View key={label} style={styles.summaryItem}><View style={[styles.summarySwatch, { backgroundColor: ['#9FD4F5', '#FFD9A1', '#FF9FA5', '#A9E3E2', '#BDF2B5', '#D9B3E2', '#B9AEF2'][index] }]} /><Text style={[styles.summaryText, { color: colors.textSecondary }]}>{label}</Text></View>)}</View>
+              </View>
             </View>
             
             <View style={styles.spacer} />
@@ -736,6 +732,10 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  dashboardContent: {
+    flexGrow: 1,
+    paddingBottom: 28,
+  },
   contentWithMenu: {
     // Estilo quando o menu está aberto
   },
@@ -803,6 +803,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 4,
   },
+
+  dashboardCards: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 18,
+    marginBottom: 18,
+  },
+  dashboardCard: {
+    flex: 1,
+    flexBasis: 210,
+    minHeight: 136,
+    borderLeftWidth: 5,
+    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  dashboardCardText: { flex: 1, paddingRight: 8 },
+  dashboardCardTitle: { fontSize: 15, fontWeight: '800', lineHeight: 21, textTransform: 'uppercase' },
+  dashboardCardValue: { fontSize: 30, fontWeight: '800', marginTop: 3 },
+  dashboardIcon: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
+  dashboardColumns: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, width: '100%' },
+  chartPanel: { flexGrow: 1, flexShrink: 1, flexBasis: 480, minHeight: 420, borderWidth: 1, borderRadius: 7, padding: 22 },
+  summaryPanel: { flexGrow: 1, flexShrink: 1, flexBasis: 260, minHeight: 420, borderWidth: 1, borderRadius: 7, padding: 22 },
+  chartTitle: { fontSize: 16, fontWeight: '800', textAlign: 'center', marginBottom: 18 },
+  chartLegend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 8 },
+  legendLine: { width: 50, height: 13, borderWidth: 3, borderColor: '#4BC1C2', backgroundColor: '#D9F2F2' },
+  legendText: { fontSize: 13 },
+  chartArea: { flex: 1, flexDirection: 'row', minHeight: 270 },
+  chartYAxis: { width: 24, justifyContent: 'space-between', paddingBottom: 25, alignItems: 'flex-end' },
+  axisText: { color: '#68727D', fontSize: 11 },
+  chartPlot: { flex: 1, marginLeft: 8, position: 'relative', justifyContent: 'space-between', borderLeftWidth: 1, borderBottomWidth: 1, borderColor: '#D7DCE1' },
+  chartGridLine: { height: 1, backgroundColor: '#E1E4E7', width: '100%' },
+  chartBaseline: { position: 'absolute', bottom: 25, left: 0, right: 0, height: 3, backgroundColor: '#4BC1C2' },
+  chartPoints: { position: 'absolute', bottom: 21, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between' },
+  chartPoint: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#4BC1C2', backgroundColor: '#fff' },
+  chartLabels: { position: 'absolute', bottom: 0, left: -5, right: -5, flexDirection: 'row', justifyContent: 'space-between' },
+  axisCaption: { textAlign: 'center', fontSize: 12, marginTop: 4 },
+  summarySpace: { flex: 1 },
+  summaryLegend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, paddingBottom: 28 },
+  summaryItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  summarySwatch: { width: 17, height: 12 },
+  summaryText: { fontSize: 12 },
 
   spacer: {
     height: 100,

@@ -73,6 +73,7 @@ const CadastroQuarteirao: React.FC = () => {
   const [expandedQuarteiroes, setExpandedQuarteiroes] = useState<Record<string, boolean>>({});
   const [localidades, setLocalidades] = useState<any[]>([]);
   const [zonas, setZonas] = useState<any[]>([]);
+  const [seletorAberto, setSeletorAberto] = useState<'localidade' | 'zona' | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [tabelaExiste, setTabelaExiste] = useState(true);
@@ -482,10 +483,11 @@ const CadastroQuarteirao: React.FC = () => {
         <TouchableOpacity style={styles.cardHeader} onPress={toggleExpanded} activeOpacity={0.75}>
           <View style={styles.cardHeaderLeft}>
             <View style={styles.numeroContainer}>
-              <Text style={styles.numeroText}>#{quarteirao.numero}</Text>
+              <Ionicons name="map-outline" size={20} color="#FFFFFF" />
             </View>
             <View style={styles.nomeContainer}>
               <Text style={styles.nomeText}>{quarteirao.nome}</Text>
+              <Text style={styles.cardSubtitle}>QUARTEIRÃO {quarteirao.numero}</Text>
             </View>
           </View>
           
@@ -836,7 +838,11 @@ const CadastroQuarteirao: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView ref={modalScrollRef} style={styles.modalForm} nestedScrollEnabled>
+            <ScrollView
+              ref={modalScrollRef}
+              style={styles.modalForm}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* Mapa */}
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Polígono no Mapa *</Text>
@@ -886,52 +892,30 @@ const CadastroQuarteirao: React.FC = () => {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Localidade *</Text>
-                <View style={styles.pickerContainer}>
-                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
-                    {localidades.map((loc) => (
-                      <TouchableOpacity
-                        key={loc.id_localidade}
-                        style={[
-                          styles.pickerOption,
-                          formData.localidade === loc.nome_localidade && styles.pickerOptionSelected
-                        ]}
-                        onPress={() => setFormData({ ...formData, localidade: loc.nome_localidade })}
-                      >
-                        <Text style={[
-                          styles.pickerOptionText,
-                          formData.localidade === loc.nome_localidade && styles.pickerOptionTextSelected
-                        ]}>
-                          {formData.localidade === loc.nome_localidade ? '✓ ' : ''}{loc.nome_localidade}{loc.co_localidade ? ` - ${loc.co_localidade}` : ''}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
+                <TouchableOpacity
+                  style={styles.selectField}
+                  onPress={() => setSeletorAberto('localidade')}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.selectFieldText, !formData.localidade && styles.selectFieldPlaceholder]}>
+                    {formData.localidade || 'Selecione uma localidade'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#55718F" />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Zona *</Text>
-                <View style={styles.pickerContainer}>
-                  <ScrollView style={styles.pickerScroll} nestedScrollEnabled>
-                    {zonas.map((zona) => (
-                      <TouchableOpacity
-                        key={zona.id_zona}
-                        style={[
-                          styles.pickerOption,
-                          formData.zona === zona.nome_zona && styles.pickerOptionSelected
-                        ]}
-                        onPress={() => setFormData({ ...formData, zona: zona.nome_zona })}
-                      >
-                        <Text style={[
-                          styles.pickerOptionText,
-                          formData.zona === zona.nome_zona && styles.pickerOptionTextSelected
-                        ]}>
-                          {formData.zona === zona.nome_zona ? '✓ ' : ''}{zona.nome_zona}{zona.co_zona ? ` - ${zona.co_zona}` : ''}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
+                <TouchableOpacity
+                  style={styles.selectField}
+                  onPress={() => setSeletorAberto('zona')}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.selectFieldText, !formData.zona && styles.selectFieldPlaceholder]}>
+                    {formData.zona || 'Selecione uma zona'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#55718F" />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
@@ -991,7 +975,7 @@ const CadastroQuarteirao: React.FC = () => {
               {/* Aviso sobre onde os dados estão sendo salvos */}
               {!tabelaExiste && (
                 <View style={styles.dataWarning}>
-                  <Text style={styles.warningIcon}>💾</Text>
+                  <Ionicons name="save-outline" size={22} color="#F57C00" style={styles.warningIcon} />
                   <Text style={styles.warningText}>
                     Dados sendo salvos localmente
                   </Text>
@@ -1019,6 +1003,58 @@ const CadastroQuarteirao: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={seletorAberto !== null}
+        onRequestClose={() => setSeletorAberto(null)}
+      >
+        <View style={styles.selectorOverlay}>
+          <View style={styles.selectorContent}>
+            <View style={styles.selectorHeader}>
+              <Text style={styles.selectorTitle}>
+                {seletorAberto === 'localidade' ? 'Selecionar localidade' : 'Selecionar zona'}
+              </Text>
+              <TouchableOpacity onPress={() => setSeletorAberto(null)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#55718F" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.selectorList}
+              contentContainerStyle={styles.selectorListContent}
+              showsVerticalScrollIndicator
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              {(seletorAberto === 'localidade' ? localidades : zonas).map((item) => {
+                const nome = seletorAberto === 'localidade' ? item.nome_localidade : item.nome_zona;
+                const codigo = seletorAberto === 'localidade' ? item.co_localidade : item.co_zona;
+                const selecionado = seletorAberto === 'localidade'
+                  ? formData.localidade === nome
+                  : formData.zona === nome;
+                return (
+                  <TouchableOpacity
+                    key={seletorAberto === 'localidade' ? item.id_localidade : item.id_zona}
+                    style={[styles.pickerOption, selecionado && styles.pickerOptionSelected]}
+                    onPress={() => {
+                      setFormData((atual) => seletorAberto === 'localidade'
+                        ? { ...atual, localidade: nome }
+                        : { ...atual, zona: nome });
+                      setSeletorAberto(null);
+                    }}
+                  >
+                    <Text style={[styles.pickerOptionText, selecionado && styles.pickerOptionTextSelected]}>
+                      {selecionado ? '✓ ' : ''}{nome}{codigo ? ` - ${codigo}` : ''}
+                    </Text>
+                    {selecionado && <Ionicons name="checkmark" size={20} color="#2F80ED" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1026,7 +1062,7 @@ const CadastroQuarteirao: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#F4F7FB',
   },
   header: {
     flexDirection: 'row',
@@ -1043,8 +1079,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '800',
+    color: '#16324F',
     flex: 1,
     textAlign: 'center',
   },
@@ -1063,10 +1099,12 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F7',
-    borderRadius: 8,
+    backgroundColor: '#F7F9FC',
+    borderRadius: 10,
     paddingHorizontal: 12,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E1E8F0',
   },
   searchIcon: {
     marginRight: 8,
@@ -1092,7 +1130,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#E3EAF3',
   },
   controlsLeft: {
     flex: 1,
@@ -1104,10 +1142,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4CAF50',
-    paddingVertical: 8,
+    backgroundColor: '#2F80ED',
+    paddingVertical: 11,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 9,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -1133,7 +1171,7 @@ const styles = StyleSheet.create({
   },
   itemsPerPageButtons: {
     flexDirection: 'row',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#EEF3F8',
     borderRadius: 6,
     padding: 2,
   },
@@ -1157,7 +1195,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   itemsPerPageButtonTextActive: {
-    color: '#4CAF50',
+    color: '#2F80ED',
   },
   // Loading
   loadingContainer: {
@@ -1175,7 +1213,7 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 14,
   },
   localDataWarning: {
     backgroundColor: '#FFF3CD',
@@ -1202,14 +1240,16 @@ const styles = StyleSheet.create({
   },
   quarteiraoCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOpacity: 0.07,
+    shadowRadius: 5,
+    borderWidth: 1,
+    borderColor: '#E4EBF3',
   },
   cardMap: {
     height: 150,
@@ -1221,7 +1261,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   expandIcon: {
     marginLeft: 8,
@@ -1234,10 +1274,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   numeroContainer: {
-    backgroundColor: '#2ecc71',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    backgroundColor: '#2F80ED',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1252,9 +1292,15 @@ const styles = StyleSheet.create({
   },
   nomeText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '800',
+    color: '#17324D',
     marginBottom: 2,
+  },
+  cardSubtitle: {
+    fontSize: 11,
+    letterSpacing: 0.4,
+    color: '#6B86A3',
+    fontWeight: '600',
   },
   descricaoText: {
     fontSize: 13,
@@ -1264,8 +1310,8 @@ const styles = StyleSheet.create({
   statusContainer: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 14,
-    minWidth: 70,
+    borderRadius: 999,
+    minWidth: 64,
   },
   statusText: {
     color: '#FFFFFF',
@@ -1290,13 +1336,13 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 13,
-    color: '#666',
+    color: '#6B86A3',
     marginBottom: 2,
     fontWeight: '600',
   },
   detailValue: {
     fontSize: 14,
-    color: '#333',
+    color: '#17324D',
   },
   // Ações do card
   cardActions: {
@@ -1316,12 +1362,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   editButton: {
-    borderColor: '#2196F3',
-    backgroundColor: '#E3F2FD',
+    borderColor: '#B8D5F8',
+    backgroundColor: '#F1F7FF',
   },
   deleteButton: {
     borderColor: '#FF5252',
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FFF5F5',
   },
   actionButtonText: {
     fontSize: 13,
@@ -1372,7 +1418,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F7',
   },
   paginaButtonActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#2F80ED',
   },
   paginaButtonText: {
     fontSize: 14,
@@ -1462,7 +1508,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#17324D',
   },
   // Modal Styles
   modalOverlay: {
@@ -1472,22 +1518,23 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
     maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#E3EAF3',
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '800',
+    color: '#17324D',
   },
 
   modalForm: {
@@ -1510,11 +1557,11 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 8,
+    borderColor: '#DCE6F0',
+    borderRadius: 10,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFD',
   },
   textArea: {
     minHeight: 80,
@@ -1550,7 +1597,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   saveButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#2F80ED',
     marginLeft: 8,
   },
   cancelButtonText: {
@@ -1596,21 +1643,65 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
-  // Picker styles
-  pickerContainer: {
+  // Seletores reutilizados para Localidade e Zona.
+  selectField: {
+    minHeight: 48,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 8,
-    backgroundColor: '#FAFAFA',
-    maxHeight: 150,
+    borderColor: '#DCE6F0',
+    borderRadius: 10,
+    backgroundColor: '#F8FAFD',
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  pickerScroll: {
-    maxHeight: 150,
+  selectFieldText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#17324D',
+  },
+  selectFieldPlaceholder: {
+    color: '#7C8CA0',
+  },
+  selectorOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  selectorContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    maxHeight: '70%',
+  },
+  selectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E3EAF3',
+  },
+  selectorTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#17324D',
+  },
+  selectorList: {
+    flexGrow: 0,
+  },
+  selectorListContent: {
+    paddingBottom: 24,
   },
   pickerOption: {
     padding: 12,
+    minHeight: 52,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   pickerOptionSelected: {
     backgroundColor: '#E8F5E9',

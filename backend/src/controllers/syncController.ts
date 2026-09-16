@@ -10,11 +10,41 @@ export const syncPush = async (req: Request, res: Response) => {
       return res.status(400).json({ status: 'error', message: 'Entidade não suportada' });
     }
 
+    let quarteiraoData: Record<string, unknown> | null = null;
+    if (op === 'create' || op === 'update') {
+      const localidadeId = payload.id_localidade || (payload.localidade_nome
+        ? (await db('tb_localidades')
+          .where('id_usuario', userId)
+          .whereRaw('LOWER(nome_localidade) = LOWER(?)', [payload.localidade_nome])
+          .first())?.id_localidade
+        : null);
+      const zonaId = payload.id_zona || (payload.zona_nome
+        ? (await db('tb_zonas')
+          .where('id_usuario', userId)
+          .whereRaw('LOWER(nome_zona) = LOWER(?)', [payload.zona_nome])
+          .first())?.id_zona
+        : null);
+
+      if (!payload.nome || !payload.numero || !localidadeId || !zonaId) {
+        return res.status(400).json({ status: 'error', message: 'Dados do quarteirão incompletos' });
+      }
+
+      quarteiraoData = {
+        numero_quadra: payload.numero,
+        nome_quadra: payload.nome,
+        id_localidade: localidadeId,
+        id_zona: zonaId,
+        status: payload.status || 'Ativo',
+        poligono_geojson: payload.poligono_geojson || null,
+        latitude_quadra: payload.latitude ?? null,
+        longitude_quadra: payload.longitude ?? null,
+        cor_poligono: payload.cor_poligono || '#3388ff',
+      };
+    }
+
     if (op === 'create') {
       const result = await db('tb_quarteiroes').insert({
-        nome_quarteirao: payload.nome_quarteirao,
-        id_localidade: payload.id_localidade,
-        id_zona: payload.id_zona,
+        ...quarteiraoData,
         id_usuario: userId,
         version: 1,
         updated_at: db.fn.now()
@@ -45,16 +75,14 @@ export const syncPush = async (req: Request, res: Response) => {
       }
 
       await db('tb_quarteiroes')
-        .where({ id_quadra: server_id })
+        .where({ id_quadra: server_id, id_usuario: userId })
         .update({
-          nome_quarteirao: payload.nome_quarteirao,
-          id_localidade: payload.id_localidade,
-          id_zona: payload.id_zona,
+          ...quarteiraoData,
           version: db.raw('version + 1'),
           updated_at: db.fn.now()
         });
 
-      const updated = await db('tb_quarteiroes').where({ id_quadra: server_id }).first();
+      const updated = await db('tb_quarteiroes').where({ id_quadra: server_id, id_usuario: userId }).first();
 
       return res.json({
         status: 'applied',
@@ -99,9 +127,15 @@ export const syncPull = async (req: Request, res: Response) => {
         server_id: q.id_quadra,
         data: {
           id_quadra: q.id_quadra,
-          nome_quarteirao: q.nome_quarteirao,
+          nome_quadra: q.nome_quadra,
+          numero_quadra: q.numero_quadra,
           id_localidade: q.id_localidade,
           id_zona: q.id_zona,
+          status: q.status,
+          poligono_geojson: q.poligono_geojson,
+          latitude_quadra: q.latitude_quadra,
+          longitude_quadra: q.longitude_quadra,
+          cor_poligono: q.cor_poligono,
           version: q.version || 0,
           updated_at: q.updated_at
         }

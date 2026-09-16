@@ -29,7 +29,7 @@ function openStreetView(lat: number, lng: number) {
   return Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
 }
 
-async function fetchGeoJson(): Promise<FeatureCollection> {
+async function fetchGeoJson(color: string): Promise<FeatureCollection> {
   const data = await imovelService.list();
   
   const features = data
@@ -55,7 +55,7 @@ async function fetchGeoJson(): Promise<FeatureCollection> {
         id: i.id_imovel,
         logradouro: i.nome_logradouro || 'Sem endereço',
         numero: i.numero || 'S/N',
-        color: '#9C27B0'
+        color
       }
       };
     })
@@ -71,7 +71,7 @@ function safeJsonForHtml(value: unknown) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
-function buildLeafletHtml(geojson: FeatureCollection) {
+function buildLeafletHtml(geojson: FeatureCollection, fallbackColor: string) {
   const geoStr = safeJsonForHtml(geojson);
 
   return `<!doctype html>
@@ -156,7 +156,7 @@ function buildLeafletHtml(geojson: FeatureCollection) {
       const pointLayer = L.geoJSON(fc, {
         filter: (f) => f?.geometry?.type === "Point",
         pointToLayer: (f, latlng) => {
-          const color = f.properties?.color || "#9C27B0";
+          const color = f.properties?.color || ${JSON.stringify(fallbackColor)};
           return L.marker(latlng, { icon: L.divIcon({ className: "", html: '<div class="map-marker" style="background:' + color + '"><i class="fas fa-home"></i></div>', iconSize: [30, 38], iconAnchor: [15, 38], popupAnchor: [0, -34] }) });
         },
         onEachFeature: (f, layer) => {
@@ -206,8 +206,8 @@ const MapaImoveis: React.FC = () => {
 
   const html = useMemo(() => {
     if (!geo) return null;
-    return buildLeafletHtml(geo);
-  }, [geo]);
+    return buildLeafletHtml(geo, colors.location);
+  }, [geo, colors.location]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -219,7 +219,7 @@ const MapaImoveis: React.FC = () => {
         setGeo(JSON.parse(cached));
         hasCachedData = true;
       }
-      const data = await fetchGeoJson();
+      const data = await fetchGeoJson(colors.location);
       setGeo(data);
       await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
     } catch (e: any) {
@@ -231,7 +231,7 @@ const MapaImoveis: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [colors.location]);
 
   useEffect(() => {
     load();
@@ -288,7 +288,7 @@ const MapaImoveis: React.FC = () => {
         </TouchableOpacity>
 
         <View style={{ flex: 1, marginLeft: 8, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-          <FontAwesome5 name="house-user" size={18} color="#9C27B0" style={{ marginRight: 15 }} />
+          <FontAwesome5 name="house-user" size={18} color={colors.location} style={{ marginRight: 15 }} />
           <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}> Mapa de Imóveis</Text>
           {!!selectedLabel && <Text style={{ marginTop: 4, opacity: 0.8, color: colors.textSecondary }}>{selectedLabel}</Text>}
         </View>
@@ -298,7 +298,7 @@ const MapaImoveis: React.FC = () => {
           style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={{ fontWeight: '800', color: colors.text }}><FontAwesome5 name="sync" size={18} color="#9C27B0" style={{ marginRight: 8 }} /></Text>}
+          {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={{ fontWeight: '800', color: colors.text }}><FontAwesome5 name="sync" size={18} color={colors.location} style={{ marginRight: 8 }} /></Text>}
         </TouchableOpacity>
       </View>
 

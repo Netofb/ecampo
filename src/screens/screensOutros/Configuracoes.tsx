@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, StatusBar, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getApiUrlForDisplay } from '../../services/api';
 
@@ -49,11 +50,11 @@ const Configuracoes: React.FC = () => {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.section}>
-          <Text style={[styles.title, { color: colors.text }]}>⚙️ Configurações</Text>
+          <View style={styles.titleRow}><Ionicons name="settings-outline" size={27} color={colors.primary} /><Text style={[styles.title, { color: colors.text }]}>Configurações</Text></View>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>🔗 Conexão Backend</Text>
+          <View style={styles.cardTitleRow}><Ionicons name="link-outline" size={20} color={colors.primary} /><Text style={[styles.cardTitle, { color: colors.text }]}>Conexão Backend</Text></View>
           <View style={styles.infoRow}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>URL da API:</Text>
             <Text style={[styles.value, { color: colors.text }]} selectable>{apiUrl}</Text>
@@ -62,18 +63,18 @@ const Configuracoes: React.FC = () => {
             style={[styles.button, { backgroundColor: colors.primary }]} 
             onPress={testarConexao}
           >
-            <Text style={styles.buttonText}>🔍 Testar Conexão</Text>
+            <Ionicons name="pulse-outline" size={18} color="#FFFFFF" /><Text style={styles.buttonText}>Testar conexão</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.button, { backgroundColor: '#FF5252', marginTop: 8 }]} 
+            style={[styles.button, { backgroundColor: colors.danger, marginTop: 8 }]}
             onPress={limparCache}
           >
-            <Text style={styles.buttonText}>🗑️ Limpar Cache</Text>
+            <Ionicons name="trash-outline" size={18} color="#FFFFFF" /><Text style={styles.buttonText}>Limpar cache</Text>
           </TouchableOpacity>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>📱 Informações do App</Text>
+          <View style={styles.cardTitleRow}><Ionicons name="phone-portrait-outline" size={20} color={colors.primary} /><Text style={[styles.cardTitle, { color: colors.text }]}>Informações do app</Text></View>
           <View style={styles.infoRow}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Versão:</Text>
             <Text style={[styles.value, { color: colors.text }]}>1.0.0</Text>
@@ -85,7 +86,7 @@ const Configuracoes: React.FC = () => {
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>📝 Instruções</Text>
+          <View style={styles.cardTitleRow}><Ionicons name="document-text-outline" size={20} color={colors.primary} /><Text style={[styles.cardTitle, { color: colors.text }]}>Instruções</Text></View>
           <Text style={[styles.instruction, { color: colors.textSecondary }]}>
             • Certifique-se que o backend está rodando{"\n"}
             • Celular e PC devem estar na mesma rede Wi-Fi{"\n"}
@@ -105,6 +106,7 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -125,6 +127,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   infoRow: {
     marginBottom: 12,
   },
@@ -137,6 +140,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   button: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,

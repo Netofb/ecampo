@@ -24,7 +24,7 @@ export const listFaces = async (req: any, res: Response) => {
 
 export const createFace = async (req: any, res: Response) => {
   try {
-    const { numero_face, id_quarteirao, nome_linha, status } = req.body;
+    const { numero_face, id_quarteirao, nome_linha, status, linha_geojson, cor_linha, latitude, longitude } = req.body;
     const userId = req.userId;
 
     if (!numero_face || !id_quarteirao) {
@@ -41,6 +41,10 @@ export const createFace = async (req: any, res: Response) => {
       id_usuario: userId,
       status: status || 'Ativo',
       ibge_face: ibgeUsuario,
+      linha_geojson: linha_geojson ? JSON.stringify(linha_geojson) : null,
+      cor_linha: cor_linha || '#3987F6',
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
     }).returning('id_face');
 
     res.status(201).json({
@@ -57,7 +61,7 @@ export const updateFace = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.userId;
-    const { numero_face, id_quarteirao, nome_linha, status } = req.body;
+    const { numero_face, id_quarteirao, nome_linha, status, linha_geojson, cor_linha, latitude, longitude } = req.body;
 
     const face = await db('tb_faces').where({ id_face: id, id_usuario: userId }).first();
 
@@ -70,6 +74,10 @@ export const updateFace = async (req: any, res: Response) => {
       id_quarteirao,
       nome_linha,
       status,
+      linha_geojson: linha_geojson ? JSON.stringify(linha_geojson) : null,
+      cor_linha: cor_linha || '#3987F6',
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
     });
 
     res.json({ message: 'Face updated successfully' });

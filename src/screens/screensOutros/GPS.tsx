@@ -4,8 +4,10 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { addFotoLocal } from '../../services/fotoLocal';
 import { addPontoLocal } from '../../services/pontoLocal';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const GPS: React.FC = () => {
+  const { colors } = useTheme();
   const [uri, setUri] = useState<string | null>(null);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [observacao, setObservacao] = useState('');
@@ -71,32 +73,32 @@ const GPS: React.FC = () => {
     } finally { setSavingPoint(false); }
   };
 
-  return <ScrollView contentContainerStyle={styles.container}>
-    <Text style={styles.title}>Foto georreferenciada</Text>
-    <Text style={styles.subtitle}>Registre uma evidência de campo com posição e horário.</Text>
-    <TouchableOpacity style={styles.button} onPress={capture}><Text style={styles.buttonText}>Tirar foto</Text></TouchableOpacity>
+  return <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
+    <Text style={[styles.title, { color: colors.text }]}>Foto georreferenciada</Text>
+    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Registre uma evidência de campo com posição e horário.</Text>
+    <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={capture}><Text style={[styles.buttonText, { color: colors.onPrimary }]}>Tirar foto</Text></TouchableOpacity>
     {uri && <Image source={{ uri }} style={styles.preview} />}
-    <TouchableOpacity style={styles.locationButton} onPress={refreshLocation}><Text style={styles.locationText}>{location ? `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}` : 'Atualizar localização'}</Text></TouchableOpacity>
-    <TextInput style={styles.input} placeholder="Observação (opcional)" value={observacao} onChangeText={setObservacao} multiline />
-    <TouchableOpacity style={[styles.locationButton, savingPoint && styles.disabled]} onPress={savePoint} disabled={savingPoint}><Text style={styles.locationText}>{savingPoint ? 'Salvando ponto...' : 'Salvar ponto de referência'}</Text></TouchableOpacity>
-    <TouchableOpacity style={[styles.button, !uri && styles.disabled]} onPress={save} disabled={!uri || saving}><Text style={styles.buttonText}>{saving ? 'Salvando...' : 'Salvar evidência'}</Text></TouchableOpacity>
-    <View style={styles.pending}><Text style={styles.pendingText}>As fotos ficam no aparelho até a sincronização ser implementada.</Text></View>
+    <TouchableOpacity style={[styles.locationButton, { borderColor: colors.location, backgroundColor: colors.card }]} onPress={refreshLocation}><Text style={[styles.locationText, { color: colors.location }]}>{location ? `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}` : 'Atualizar localização'}</Text></TouchableOpacity>
+    <TextInput style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.text }]} placeholder="Observação (opcional)" placeholderTextColor={colors.placeholder} value={observacao} onChangeText={setObservacao} multiline />
+    <TouchableOpacity style={[styles.locationButton, { borderColor: colors.location, backgroundColor: colors.card }, savingPoint && styles.disabled]} onPress={savePoint} disabled={savingPoint}><Text style={[styles.locationText, { color: colors.location }]}>{savingPoint ? 'Salvando ponto...' : 'Salvar ponto de referência'}</Text></TouchableOpacity>
+    <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }, !uri && styles.disabled]} onPress={save} disabled={!uri || saving}><Text style={[styles.buttonText, { color: colors.onPrimary }]}>{saving ? 'Salvando...' : 'Salvar evidência'}</Text></TouchableOpacity>
+    <View style={[styles.pending, { backgroundColor: colors.locationArea }]}><Text style={[styles.pendingText, { color: colors.textSecondary }]}>As fotos ficam no aparelho até a sincronização ser implementada.</Text></View>
   </ScrollView>;
 };
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 20, backgroundColor: '#F5F5F7' },
-  title: { fontSize: 24, fontWeight: '800', color: '#17343B', marginBottom: 6 },
-  subtitle: { color: '#4A5568', marginBottom: 22 },
-  button: { minHeight: 46, borderRadius: 8, backgroundColor: '#176B68', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  container: { flexGrow: 1, padding: 20 },
+  title: { fontSize: 24, fontWeight: '800', marginBottom: 6 },
+  subtitle: { marginBottom: 22 },
+  button: { minHeight: 46, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   disabled: { opacity: 0.45 },
-  buttonText: { color: '#FFFFFF', fontWeight: '700' },
-  preview: { width: '100%', height: 240, borderRadius: 8, marginBottom: 12, backgroundColor: '#D7E2DF' },
-  locationButton: { minHeight: 46, borderRadius: 8, borderWidth: 1, borderColor: '#D7E2DF', backgroundColor: '#FFFFFF', justifyContent: 'center', paddingHorizontal: 12, marginBottom: 12 },
-  locationText: { color: '#17343B', fontWeight: '600' },
-  input: { minHeight: 80, backgroundColor: '#FFFFFF', borderColor: '#D7E2DF', borderWidth: 1, borderRadius: 8, padding: 12, textAlignVertical: 'top', marginBottom: 12 },
-  pending: { padding: 12, borderRadius: 8, backgroundColor: '#FFF7ED' },
-  pendingText: { color: '#9A3412', fontSize: 12 },
+  buttonText: { fontWeight: '700' },
+  preview: { width: '100%', height: 240, borderRadius: 8, marginBottom: 12 },
+  locationButton: { minHeight: 46, borderRadius: 8, borderWidth: 1, justifyContent: 'center', paddingHorizontal: 12, marginBottom: 12 },
+  locationText: { fontWeight: '600' },
+  input: { minHeight: 80, borderWidth: 1, borderRadius: 8, padding: 12, textAlignVertical: 'top', marginBottom: 12 },
+  pending: { padding: 12, borderRadius: 8 },
+  pendingText: { fontSize: 12 },
 });
 
 export default GPS;
