@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../database';
-import { hashPassword, comparePassword, generateToken } from '../utils/auth';
+import { hashPassword, generateToken } from '../utils/auth';
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -61,34 +61,12 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Detectar tipo de senha e validar
-    function isBcryptHash(value: unknown): value is string {
-      return typeof value === "string" && value.startsWith("$2");
-    }
-
     const stored = user.senha as string | null | undefined;
     if (!stored) return res.status(401).json({ error: 'Invalid credentials' });
 
-    let ok = false;
-
-    if (isBcryptHash(stored)) {
-      // Senha já é bcrypt
-      ok = await comparePassword(password, stored);
-    } else {
-      // Senha em texto puro
-      ok = password === stored;
-
-      // Migrar automaticamente para bcrypt
-      const autoMigrate = (process.env.AUTO_MIGRATE_PASSWORDS ?? "true") === "true";
-      if (ok && autoMigrate) {
-        const newHash = await hashPassword(password);
-        await db("usuarios")
-          .where("id_usuario", user.id_usuario)
-          .update({ senha: newHash });
-      }
-    }
-
-    if (!ok) {
+    // A senha é cadastrada e mantida pelo sistema web na tabela usuarios.
+    // Não a alteramos no app para evitar divergência com a autenticação web.
+    if (password !== stored) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
