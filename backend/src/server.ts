@@ -36,17 +36,120 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', timestamp: new Date() });
 });
 app.get('/', (_req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    mensagem: 'API funcionando!'
-  });
+  res.status(200).type('html').send(`
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>eCampo API</title>
+        <style>
+          body {
+            align-items: center;
+            background: #f4f7f5;
+            color: #183024;
+            display: flex;
+            font-family: Arial, sans-serif;
+            justify-content: center;
+            margin: 0;
+            min-height: 100vh;
+          }
+          main {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 18px rgba(24, 48, 36, .12);
+            max-width: 420px;
+            padding: 32px;
+            text-align: center;
+            width: calc(100% - 64px);
+          }
+          .status {
+            color: #16803c;
+            font-size: 1.2rem;
+            font-weight: bold;
+          }
+        </style>
+      </head>
+      <body>
+        <main>
+          <h1>eCampo API</h1>
+          <p class="status">HTTP 200 - OK</p>
+          <p>Servidor funcionando normalmente.</p>
+        </main>
+      </body>
+    </html>
+  `);
 });
 
 // Error handling
-app.use((err: any, req: Request, res: Response, next: any) => {
+app.use((err: any, _req: Request, res: Response, _next: any) => {
   console.error(err);
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).type('html').send(`
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Erro - eCampo API</title>
+        <style>
+          body {
+            align-items: center;
+            background: #fff5f5;
+            color: #3b1717;
+            display: flex;
+            font-family: Arial, sans-serif;
+            justify-content: center;
+            margin: 0;
+            min-height: 100vh;
+          }
+          main {
+            background: #fff;
+            border: 1px solid #f0b8b8;
+            border-radius: 12px;
+            box-shadow: 0 4px 18px rgba(96, 24, 24, .12);
+            max-width: 520px;
+            padding: 32px;
+            text-align: center;
+            width: calc(100% - 64px);
+          }
+          .status {
+            color: #c62828;
+            font-size: 1.2rem;
+            font-weight: bold;
+          }
+          code {
+            background: #fff0f0;
+            border-radius: 4px;
+            display: block;
+            margin-top: 16px;
+            padding: 12px;
+            text-align: left;
+            white-space: pre-wrap;
+            word-break: break-word;
+          }
+        </style>
+      </head>
+      <body>
+        <main>
+          <h1>eCampo API</h1>
+          <p class="status">HTTP 500 - Erro interno</p>
+          <p>O servidor encontrou um erro. Verifique o terminal para mais detalhes.</p>
+          <code>${escapeHtml(String(err?.message || 'Erro desconhecido'))}</code>
+        </main>
+      </body>
+    </html>
+  `);
 });
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  })[character] || character);
+}
 
 // Start server
 app.listen(PORT, HOST, () => {
