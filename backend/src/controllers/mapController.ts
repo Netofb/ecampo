@@ -1,6 +1,26 @@
 import { Request, Response } from 'express';
 import db from '../database';
 
+function parseGeometry(value: unknown): any | null {
+  if (!value) return null;
+
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    const geometry = (parsed as any)?.type === 'Feature' ? (parsed as any).geometry : parsed;
+    if (!geometry || typeof geometry.type !== 'string' || !Array.isArray(geometry.coordinates)) {
+      return null;
+    }
+    return geometry;
+  } catch {
+    return null;
+  }
+}
+
+function finiteCoordinate(value: unknown): number | null {
+  const coordinate = Number(value);
+  return Number.isFinite(coordinate) ? coordinate : null;
+}
+
 export const getQuarteiroesMap = async (req: any, res: Response) => {
   try {
     const userId = req.userId;
@@ -17,7 +37,6 @@ export const getQuarteiroesMap = async (req: any, res: Response) => {
         'q.longitude_quadra',
         'q.cor_poligono',
         'q.poligono_geojson',
-        'q.geojson',
         'z.nome_zona',
         'l.nome_localidade'
       );
@@ -25,13 +44,9 @@ export const getQuarteiroesMap = async (req: any, res: Response) => {
     const features: any[] = [];
 
     quarteiroes.forEach(q => {
-      // Adiciona polígono se existir
-      if (q.poligono_geojson) {
+      const geometry = parseGeometry(q.poligono_geojson);
+      if (geometry) {
         try {
-          const rawGeojson = q.poligono_geojson || q.geojson;
-          const geojson = typeof rawGeojson === 'string' ? JSON.parse(rawGeojson) : rawGeojson;
-          const geometry = geojson.type === 'Feature' ? geojson.geometry : geojson;
-          
           features.push({
             type: 'Feature',
             id: `polygon-${q.id_quadra}`,
@@ -46,19 +61,21 @@ export const getQuarteiroesMap = async (req: any, res: Response) => {
               type: 'polygon'
             }
           });
-        } catch (e) {
-          console.error('Error parsing polygon:', e);
+        } catch (error) {
+          console.error(`Error building polygon for quarteirão ${q.id_quadra}:`, error);
         }
       }
 
       // Adiciona ponto central se existir
-      if (q.latitude_quadra && q.longitude_quadra) {
+      const latitude = finiteCoordinate(q.latitude_quadra);
+      const longitude = finiteCoordinate(q.longitude_quadra);
+      if (latitude !== null && longitude !== null) {
         features.push({
           type: 'Feature',
           id: `point-${q.id_quadra}`,
           geometry: {
             type: 'Point',
-            coordinates: [parseFloat(q.longitude_quadra), parseFloat(q.latitude_quadra)]
+            coordinates: [longitude, latitude]
           },
           properties: {
             id: q.id_quadra,
@@ -107,10 +124,9 @@ export const getFacesMap = async (req: any, res: Response) => {
     const features: any[] = [];
 
     faces.forEach(f => {
-      if (f.linha_geojson) {
+      const geometry = parseGeometry(f.linha_geojson);
+      if (geometry) {
         try {
-          const rawGeojson = typeof f.linha_geojson === 'string' ? JSON.parse(f.linha_geojson) : f.linha_geojson;
-          const geometry = rawGeojson.type === 'Feature' ? rawGeojson.geometry : (rawGeojson.geometry || rawGeojson);
           features.push({
             type: 'Feature',
             id: `line-${f.id_face}`,
@@ -127,17 +143,19 @@ export const getFacesMap = async (req: any, res: Response) => {
             },
           });
         } catch (error) {
-          console.error(`Error parsing line for face ${f.id_face}:`, error);
+          console.error(`Error building line for face ${f.id_face}:`, error);
         }
       }
 
-      if (f.latitude != null && f.longitude != null) {
+      const latitude = finiteCoordinate(f.latitude);
+      const longitude = finiteCoordinate(f.longitude);
+      if (latitude !== null && longitude !== null) {
         features.push({
           type: 'Feature',
           id: `point-${f.id_face}`,
           geometry: {
             type: 'Point',
-            coordinates: [parseFloat(f.longitude), parseFloat(f.latitude)]
+            coordinates: [longitude, latitude]
           },
           properties: {
             id: f.id_face,

@@ -42,28 +42,6 @@ class AuthService {
     };
   }
 
-  async register(cpf: string, password: string) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf, password }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Registration failed');
-      }
-
-      const data = await response.json();
-      this.token = data.token;
-      this.userId = data.userId.toString();
-      return data;
-    } catch (error) {
-      throw error;
-    }
-  }
-
   async login(cpf: string, password: string) {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -130,7 +108,8 @@ class QuarteiraoService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch quarteirões');
+        const details = await response.text();
+        throw new Error(`Quarteirões (${response.status}): ${details || 'resposta inválida do servidor'}`);
       }
 
       return await response.json();

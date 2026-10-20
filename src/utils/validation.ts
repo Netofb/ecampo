@@ -45,9 +45,4 @@ export const validatePassword = (password: string): string => {
   return '';
 };
 
-export const validateConfirmPassword = (password: string, confirmPassword: string): string => {
-  if (!confirmPassword) return 'Confirme sua senha';
-  if (password !== confirmPassword) return 'Senhas diferentes';
-  return '';
-};
 

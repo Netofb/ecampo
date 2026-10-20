@@ -84,7 +84,7 @@ WHERE cpf_usuario = '12345678909';
 
 ## Endpoints Protegidos
 
-Todos os endpoints exceto `/api/auth/login` e `/api/auth/register` requerem token JWT no header:
+O endpoint `/api/auth/login` não exige token. Os demais endpoints requerem token JWT no header:
 
 ```
 Authorization: Bearer <token>

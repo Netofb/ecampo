@@ -35,6 +35,12 @@ app.use('/api/sync', syncRoutes);
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', timestamp: new Date() });
 });
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    mensagem: 'API funcionando!'
+  });
+});
 
 // Error handling
 app.use((err: any, req: Request, res: Response, next: any) => {
@@ -47,7 +53,6 @@ app.listen(PORT, HOST, () => {
   console.log(`✅ Server running on http://${HOST}:${PORT}`);
   console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📚 API endpoints:`);
-  console.log(`   POST   /api/auth/register`);
   console.log(`   POST   /api/auth/login`);
   console.log(`   GET    /api/auth/profile`);
   console.log(`   GET    /api/quarteiroes`);

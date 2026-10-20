@@ -1,45 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../database';
-import { hashPassword, generateToken } from '../utils/auth';
-
-export const register = async (req: Request, res: Response) => {
-  try {
-    const { cpf, password } = req.body;
-
-    if (!cpf || !password) {
-      return res.status(400).json({ error: 'CPF and password are required' });
-    }
-
-    const existingUser = await db('users').where('cpf', cpf).first();
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
-
-    const hashedPassword = await hashPassword(password);
-
-    const [result] = await db('users').insert({
-      cpf,
-      password: hashedPassword,
-      email: `${cpf}@cpf.local`,
-      name: 'Usuário',
-      created_at: new Date(),
-    }).returning('id');
-
-    const userId = result.id || result;
-    const token = generateToken(userId.toString());
-
-    res.status(201).json({
-      userId,
-      token,
-      user: { id: userId, cpf },
-      message: 'User registered successfully',
-    });
-  } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
+import { generateToken } from '../utils/auth';
 
 export const login = async (req: Request, res: Response) => {
   try {

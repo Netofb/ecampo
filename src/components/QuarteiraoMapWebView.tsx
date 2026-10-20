@@ -63,10 +63,9 @@ const buildHtml = (
 <script>
 var map = L.map('map', { zoomControl: true }).setView([${center.lat}, ${center.lng}], 15);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap',
   maxZoom: 20,
-  subdomains: 'abcd'
 }).addTo(map);
 
 var drawnItems = new L.FeatureGroup().addTo(map);

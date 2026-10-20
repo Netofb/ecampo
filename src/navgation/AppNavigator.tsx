@@ -7,7 +7,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 // TELAS DE AUTENTICAÇÃO
 import LoginScreen from '../screens/LoginScreen';
-import RegisterScreen from '../screens/RegisterScreen';
 
 // TELA PRINCIPAL
 import HomeScreen from '../screens/HomeScreen';
@@ -44,7 +43,6 @@ import Localidades from '../screens/Localidades';
 export type RootStackParamList = {
   // Autenticação
   Login: undefined;
-  Register: undefined;
   
   // Principal
   Home: undefined;
@@ -121,18 +119,11 @@ const AppNavigator: React.FC = () => {
       >
         {status === 'unauthenticated' ? (
           // USUÁRIO NÃO LOGADO - TELAS PÚBLICAS
-          <>
-            <Stack.Screen 
-              name="Login" 
-              component={LoginScreen}
-              options={{ title: 'Login - e-Campo' }}
-            />
-            <Stack.Screen 
-              name="Register" 
-              component={RegisterScreen}
-              options={{ title: 'Cadastro - e-Campo' }}
-            />
-          </>
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreen}
+            options={{ title: 'Login - e-Campo' }}
+          />
         ) : status === 'needs_sync' ? (
           // SINCRONIZAÇÃO INICIAL
           <Stack.Screen 

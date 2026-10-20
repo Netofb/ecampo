@@ -123,7 +123,16 @@ export const SyncService = {
     });
 
     if (!response.ok) {
-      throw new Error(`Falha ao baixar alterações (${response.status})`);
+      let message = `Falha ao baixar alterações (${response.status})`;
+      try {
+        const error = await response.json();
+        if (error.error || error.message) {
+          message += `: ${error.error || error.message}`;
+        }
+      } catch {
+        // Mantém a mensagem com o status quando a resposta não é JSON.
+      }
+      throw new Error(message);
     }
 
     const data = await response.json();

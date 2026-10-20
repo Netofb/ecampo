@@ -62,6 +62,16 @@ const CadastroFace: React.FC = () => {
   const [faceColor] = useState('#1565C0');
   const [seletorAberto, setSeletorAberto] = useState<'status' | 'quarteirao' | null>(null);
 
+  const quarteiraoSelecionado = quarteiroes.find(
+    (quarteirao) => quarteirao.id_quadra?.toString() === formData.id_quarteirao
+  );
+
+  const poligonoQuarteirao = (() => {
+    const value = quarteiraoSelecionado?.poligono_geojson || quarteiraoSelecionado?.geojson;
+    if (!value || typeof value === 'object') return value || null;
+    try { return JSON.parse(value); } catch { return null; }
+  })();
+
   const facesFiltradas = faces.filter(face =>
     face.numero_face.toString().includes(busca) ||
     (face.nome_quadra || '').toLowerCase().includes(busca.toLowerCase())
@@ -504,10 +514,11 @@ const CadastroFace: React.FC = () => {
               </View>
               </View>
 
-              <View style={styles.helpBox}><Text style={styles.helpTitle}>ⓘ Selecione o quarteirão e escolha uma ou mais arestas:</Text><Text style={styles.helpText}>• As arestas disponíveis aparecem sobre o quarteirão selecionado.{`\n`}• Desenhe a linha da face no mapa abaixo.{`\n`}• A linha escolhida será gravada como a geometria da face.</Text></View>
+              <View style={styles.helpBox}><Text style={styles.helpTitle}>ⓘ Selecione as arestas da face:</Text><Text style={styles.helpText}>• Os lados do quarteirão aparecem em verde.{`\n`}• Toque em cada aresta que pertence à face.{`\n`}• Toque novamente para remover uma seleção.</Text></View>
               <FaceLineMapEditor
                 height={220}
-                center={(() => { const q = quarteiroes.find((item) => item.id_quadra.toString() === formData.id_quarteirao); return { lat: Number(q?.latitude_quadra) || -8.3797, lng: Number(q?.longitude_quadra) || -35.4508 }; })()}
+                center={{ lat: Number(quarteiraoSelecionado?.latitude_quadra) || -8.3797, lng: Number(quarteiraoSelecionado?.longitude_quadra) || -35.4508 }}
+                initialPolygon={poligonoQuarteirao}
                 initialLine={faceMapData?.geojson || null}
                 color={faceColor}
                 onLineChanged={setFaceMapData}
@@ -547,7 +558,7 @@ const CadastroFace: React.FC = () => {
               {seletorAberto === 'status' && (['Ativo', 'Inativo'] as const).map((status) => <TouchableOpacity key={status} style={styles.dropdownOption} onPress={() => { setFormData({ ...formData, status }); setSeletorAberto(null); }}>
                 <Text style={[styles.dropdownOptionText, formData.status === status && styles.dropdownOptionTextSelected]}>{formData.status === status ? '✓ ' : ''}{status}</Text>
               </TouchableOpacity>)}
-              {seletorAberto === 'quarteirao' && quarteiroes.map((q) => <TouchableOpacity key={q.id_quadra} style={styles.dropdownOption} onPress={() => { setFormData({ ...formData, id_quarteirao: q.id_quadra.toString() }); setSeletorAberto(null); }}>
+              {seletorAberto === 'quarteirao' && quarteiroes.map((q) => <TouchableOpacity key={q.id_quadra} style={styles.dropdownOption} onPress={() => { const idQuarteirao = q.id_quadra.toString(); if (formData.id_quarteirao !== idQuarteirao) setFaceMapData(null); setFormData({ ...formData, id_quarteirao: idQuarteirao }); setSeletorAberto(null); }}>
                 <Text style={[styles.dropdownOptionText, formData.id_quarteirao === q.id_quadra.toString() && styles.dropdownOptionTextSelected]}>{formData.id_quarteirao === q.id_quadra.toString() ? '✓ ' : ''}{q.nome_quadra} - Nº {q.numero_quadra}</Text>
               </TouchableOpacity>)}
             </ScrollView>

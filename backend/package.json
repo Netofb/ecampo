@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Backend API for eCampo - PostgreSQL based",
   "main": "dist/server.js",
+  "engines": {
+    "node": "20.20.0"
+  },
   "scripts": {
     "dev": "npm run build && node dist/server.js",
     "build": "tsc",

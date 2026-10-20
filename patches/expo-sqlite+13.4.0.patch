@@ -1,0 +1,11 @@
+diff --git a/node_modules/expo-sqlite/android/build.gradle b/node_modules/expo-sqlite/android/build.gradle
+--- a/node_modules/expo-sqlite/android/build.gradle
++++ b/node_modules/expo-sqlite/android/build.gradle
+@@ -177,6 +177,7 @@ def downloadSQLite = tasks.create('downloadSQLite', Download) {
+ def prepareSQLite = tasks.register('prepareSQLite', Copy) {
+   dependsOn(downloadSQLite)
+   from(zipTree(downloadSQLite.dest))
++  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+   into(SQLITE3_SRC_DIR)
+   eachFile {
+     // flatten files
