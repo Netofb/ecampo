@@ -18,6 +18,7 @@ interface Props {
   initialPolygon?: object | null;
   initialCenter?: { lat: number; lng: number };
   interactive?: boolean;
+  allowCreate?: boolean;
   onPolygonChanged?: (data: MapPolygonData) => void;
   onMarkerChanged?: (data: MapMarkerData) => void;
   onReady?: () => void;
@@ -31,7 +32,8 @@ const DEFAULT_CENTER = { lat: -8.3797, lng: -35.4508 }; // Amaraji-PE
 const buildHtml = (
   center: { lat: number; lng: number },
   initialPolygon: object | null,
-  interactive: boolean
+  interactive: boolean,
+  allowCreate: boolean
 ) => `<!DOCTYPE html>
 <html>
 <head>
@@ -72,9 +74,9 @@ var drawnItems = new L.FeatureGroup().addTo(map);
 var marker = null;
 
 var drawControl = new L.Control.Draw({
-  edit: { featureGroup: drawnItems },
+  edit: { featureGroup: drawnItems, remove: ${allowCreate} },
   draw: {
-    polygon: { shapeOptions: { color: '#2E7D32', fillOpacity: 0.15 } },
+    polygon: ${allowCreate ? "{ shapeOptions: { color: '#2E7D32', fillOpacity: 0.15 } }" : 'false'},
     polyline: false, rectangle: false, circle: false,
     circlemarker: false, marker: false
   }
@@ -148,6 +150,7 @@ map.on(L.Draw.Event.CREATED, function(e) {
 });
 
 map.on(L.Draw.Event.EDITED, function() { emitPolygon(); });
+map.on(L.Draw.Event.EDITVERTEX, function() { emitPolygon(); });
 map.on(L.Draw.Event.DELETED, function() {
   postMsg('POLYGON_CHANGED', null);
 });
@@ -225,6 +228,7 @@ const QuarteiraoMapWebView = forwardRef<QuarteiraoMapHandle, Props>((
     initialPolygon = null,
     initialCenter = DEFAULT_CENTER,
     interactive = true,
+    allowCreate = true,
     onPolygonChanged,
     onMarkerChanged,
     onReady,
@@ -274,7 +278,7 @@ const QuarteiraoMapWebView = forwardRef<QuarteiraoMapHandle, Props>((
     [onReady, onPolygonChanged, onMarkerChanged]
   );
 
-  const html = buildHtml(initialCenter, initialPolygon, interactive);
+  const html = buildHtml(initialCenter, initialPolygon, interactive, allowCreate);
 
   return (
     <View

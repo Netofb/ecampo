@@ -46,7 +46,7 @@ app.get('/', (_req, res) => {
         <style>
           body {
             align-items: center;
-            background: #f4f7f5;
+            background: #d1d4d2;
             color: #183024;
             display: flex;
             font-family: Arial, sans-serif;
@@ -55,7 +55,7 @@ app.get('/', (_req, res) => {
             min-height: 100vh;
           }
           main {
-            background: #fff;
+            background: #cfcfcf;
             border-radius: 12px;
             box-shadow: 0 4px 18px rgba(24, 48, 36, .12);
             max-width: 420px;

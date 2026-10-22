@@ -15,7 +15,7 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { quarteiraoService, localidadeService, zonaService } from '../../services/api';
@@ -45,6 +45,7 @@ interface Quarteirao {
 }
 
 const CadastroQuarteirao: React.FC = () => {
+  const PAGE_SIZE = 20;
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
@@ -53,10 +54,7 @@ const CadastroQuarteirao: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [busca, setBusca] = useState('');
   
-  // Estados para paginação
-  const [paginaAtual, setPaginaAtual] = useState(1);
-  const [itensPorPagina, setItensPorPagina] = useState(10);
-  const [opcoesItensPorPagina] = useState([5, 10, 20, 50]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   
   // Dados do formulário
   const [formData, setFormData] = useState({
@@ -83,6 +81,9 @@ const CadastroQuarteirao: React.FC = () => {
   const modalScrollRef = useRef<ScrollView>(null);
   const [mapData, setMapData] = useState<MapPolygonData | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const lastSavedEditRef = useRef<string | null>(null);
+  const originalEditRef = useRef<{ formData: typeof formData; mapData: MapPolygonData | null; quarteirao: Quarteirao } | null>(null);
 
   const parseGeojson = (value: unknown): object | null => {
     if (!value) return null;
@@ -121,21 +122,61 @@ const CadastroQuarteirao: React.FC = () => {
     (quarteirao.zona || '').toLowerCase().includes(busca.toLowerCase())
   );
 
-  // Calcula paginação
   const totalItens = quarteiroesFiltrados.length;
-  const totalPaginas = Math.ceil(totalItens / itensPorPagina);
-  
-  // Ajusta página atual se necessário
   useEffect(() => {
-    if (paginaAtual > totalPaginas && totalPaginas > 0) {
-      setPaginaAtual(totalPaginas);
-    }
-  }, [totalItens, itensPorPagina]);
+    setVisibleCount(PAGE_SIZE);
+  }, [busca]);
+  const quarteiroesVisiveis = quarteiroesFiltrados.slice(0, visibleCount);
 
-  // Pega itens da página atual
-  const inicio = (paginaAtual - 1) * itensPorPagina;
-  const fim = inicio + itensPorPagina;
-  const quarteiroesPagina = quarteiroesFiltrados.slice(inicio, fim);
+  useEffect(() => {
+    if (!modalVisible || !editando || !quarteiraoEditando || !mapData) return;
+    const snapshot = JSON.stringify({ formData, mapData });
+    if (lastSavedEditRef.current === null) {
+      lastSavedEditRef.current = snapshot;
+      return;
+    }
+    if (snapshot === lastSavedEditRef.current) return;
+
+    setAutoSaveStatus('saving');
+    const timeout = setTimeout(async () => {
+      const localidadeSelecionada = localidades.find(item => item.nome_localidade === formData.localidade);
+      const zonaSelecionada = zonas.find(item => item.nome_zona === formData.zona);
+      const geoPayload = {
+        poligono_geojson: mapData.geojson,
+        latitude: mapData.centroid.lat,
+        longitude: mapData.centroid.lng,
+        cor_poligono: '#4CAF50',
+      };
+      try {
+        if (Number.isNaN(Number(quarteiraoEditando.id))) {
+          await openDatabase();
+          await quarteiraoLocalRepo.updateLocal(quarteiraoEditando.id, {
+            nome: formData.nome,
+            numero: Number.parseInt(formData.numero, 10),
+            localidade_nome: formData.localidade,
+            zona_nome: formData.zona,
+            status: formData.status,
+            area_m2: mapData.area_m2,
+            ...geoPayload,
+          });
+        } else {
+          await quarteiraoService.update(Number(quarteiraoEditando.id), {
+            nome: formData.nome,
+            numero: Number.parseInt(formData.numero, 10),
+            id_localidade: localidadeSelecionada?.id_localidade,
+            id_zona: zonaSelecionada?.id_zona,
+            status: formData.status,
+            ...geoPayload,
+          });
+        }
+        lastSavedEditRef.current = snapshot;
+        setAutoSaveStatus('saved');
+      } catch {
+        setAutoSaveStatus('error');
+      }
+    }, 700);
+    return () => clearTimeout(timeout);
+  }, [modalVisible, editando, quarteiraoEditando, formData, mapData, localidades, zonas]);
 
   // Carregar quarteirões usando a nova API
   const carregarQuarteiroes = async () => {
@@ -189,7 +230,7 @@ const CadastroQuarteirao: React.FC = () => {
       
       setQuarteiroes(quarteiroesMapeados);
       setTabelaExiste(true);
-      setPaginaAtual(1);
+      setVisibleCount(PAGE_SIZE);
       
     } catch (error: any) {
       try {
@@ -275,6 +316,9 @@ const CadastroQuarteirao: React.FC = () => {
 
   // Função para abrir modal de cadastro
   const abrirModalCadastro = async () => {
+    lastSavedEditRef.current = null;
+    originalEditRef.current = null;
+    setAutoSaveStatus('saved');
     setEditando(false);
     setQuarteiraoEditando(null);
     setMapData(null);
@@ -299,6 +343,8 @@ const CadastroQuarteirao: React.FC = () => {
 
   // Função para abrir modal de edição
   const abrirModalEdicao = async (quarteirao: Quarteirao) => {
+    lastSavedEditRef.current = null;
+    setAutoSaveStatus('saved');
     setEditando(true);
     setQuarteiraoEditando(quarteirao);
     setMapReady(false);
@@ -319,7 +365,7 @@ const CadastroQuarteirao: React.FC = () => {
       await carregarLocalidadesEZonas();
     }
     
-    setFormData({
+    const initialFormData = {
       numero: quarteirao.numero.toString(),
       nome: quarteirao.nome,
       localidade: quarteirao.localidade,
@@ -327,8 +373,64 @@ const CadastroQuarteirao: React.FC = () => {
       area: quarteirao.area.toString(),
       status: quarteirao.status,
       descricao: quarteirao.descricao || '',
-    });
+    };
+    const initialMapData = savedGeojson ? {
+      geojson: savedGeojson,
+      centroid: { lat: quarteirao.latitude ?? 0, lng: quarteirao.longitude ?? 0 },
+      bounds: [[0, 0], [0, 0]] as [[number, number], [number, number]],
+      area_m2: quarteirao.area * 10000,
+    } : null;
+    originalEditRef.current = { formData: initialFormData, mapData: initialMapData, quarteirao };
+    setFormData(initialFormData);
     setModalVisible(true);
+  };
+
+  const cancelarAtualizacao = async () => {
+    const original = originalEditRef.current;
+    if (!original || !mapData) {
+      setModalVisible(false);
+      return;
+    }
+    setAutoSaveStatus('saving');
+    try {
+      const localidadeSelecionada = localidades.find(item => item.nome_localidade === original.formData.localidade);
+      const zonaSelecionada = zonas.find(item => item.nome_zona === original.formData.zona);
+      const geoPayload = {
+        poligono_geojson: original.mapData?.geojson,
+        latitude: original.mapData?.centroid.lat,
+        longitude: original.mapData?.centroid.lng,
+        cor_poligono: '#4CAF50',
+      };
+      if (Number.isNaN(Number(original.quarteirao.id))) {
+        await openDatabase();
+        await quarteiraoLocalRepo.updateLocal(original.quarteirao.id, {
+          nome: original.formData.nome,
+          numero: Number.parseInt(original.formData.numero, 10),
+          localidade_nome: original.formData.localidade,
+          zona_nome: original.formData.zona,
+          status: original.formData.status,
+          area_m2: original.mapData?.area_m2,
+          ...geoPayload,
+        });
+      } else {
+        await quarteiraoService.update(Number(original.quarteirao.id), {
+          nome: original.formData.nome,
+          numero: Number.parseInt(original.formData.numero, 10),
+          id_localidade: localidadeSelecionada?.id_localidade,
+          id_zona: zonaSelecionada?.id_zona,
+          status: original.formData.status,
+          ...geoPayload,
+        });
+      }
+      lastSavedEditRef.current = JSON.stringify({ formData: original.formData, mapData: original.mapData });
+      setFormData(original.formData);
+      setMapData(original.mapData);
+      setAutoSaveStatus('saved');
+      setModalVisible(false);
+    } catch {
+      setAutoSaveStatus('error');
+      Alert.alert('Erro', 'Não foi possível cancelar a atualização e restaurar os dados originais.');
+    }
   };
 
   // Função para salvar quarteirão
@@ -450,25 +552,6 @@ const CadastroQuarteirao: React.FC = () => {
     );
   };
 
-  // Funções de paginação
-  const irParaPagina = (pagina: number) => {
-    if (pagina >= 1 && pagina <= totalPaginas) {
-      setPaginaAtual(pagina);
-    }
-  };
-
-  const irParaProximaPagina = () => {
-    if (paginaAtual < totalPaginas) {
-      setPaginaAtual(paginaAtual + 1);
-    }
-  };
-
-  const irParaPaginaAnterior = () => {
-    if (paginaAtual > 1) {
-      setPaginaAtual(paginaAtual - 1);
-    }
-  };
-
   // Renderizar cada quarteirão
   const renderQuarteiraoItem = (quarteirao: Quarteirao) => {
     const expanded = !!expandedQuarteiroes[quarteirao.id];
@@ -478,16 +561,16 @@ const CadastroQuarteirao: React.FC = () => {
     }));
 
     return (
-      <View style={styles.quarteiraoCard}>
+      <View style={[styles.quarteiraoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {/* Cabeçalho do card */}
-        <TouchableOpacity style={styles.cardHeader} onPress={toggleExpanded} activeOpacity={0.75}>
+        <TouchableOpacity style={[styles.cardHeader, { backgroundColor: colors.card }]} onPress={toggleExpanded} activeOpacity={0.75}>
           <View style={styles.cardHeaderLeft}>
             <View style={styles.numeroContainer}>
               <Ionicons name="map-outline" size={20} color="#FFFFFF" />
             </View>
             <View style={styles.nomeContainer}>
-              <Text style={styles.nomeText}>{quarteirao.nome}</Text>
-              <Text style={styles.cardSubtitle}>QUARTEIRÃO {quarteirao.numero}</Text>
+              <Text style={[styles.nomeText, { color: colors.text }]}>{quarteirao.nome}</Text>
+              <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>QUARTEIRÃO {quarteirao.numero}</Text>
             </View>
           </View>
           
@@ -502,7 +585,7 @@ const CadastroQuarteirao: React.FC = () => {
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={20}
-            color="#64748B"
+            color={colors.textSecondary}
             style={styles.expandIcon}
           />
         </TouchableOpacity>
@@ -522,28 +605,28 @@ const CadastroQuarteirao: React.FC = () => {
           </View>
         )}
 
-        {expanded && <View style={styles.cardDetails}>
+        {expanded && <View style={[styles.cardDetails, { backgroundColor: colors.card }]}>
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Localidade:</Text>
-              <Text style={styles.detailValue}>{quarteirao.localidade}</Text>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Localidade:</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>{quarteirao.localidade}</Text>
             </View>
             
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Zona:</Text>
-              <Text style={styles.detailValue}>{quarteirao.zona}</Text>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Zona:</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>{quarteirao.zona}</Text>
             </View>
           </View>
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Latitude:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Latitude:</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>
                 {quarteirao.latitude !== undefined ? quarteirao.latitude.toFixed(6) : 'N/A'}
               </Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Longitude:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Longitude:</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>
                 {quarteirao.longitude !== undefined ? quarteirao.longitude.toFixed(6) : 'N/A'}
               </Text>
             </View>
@@ -571,83 +654,12 @@ const CadastroQuarteirao: React.FC = () => {
     );
   };
 
-  // Renderizar controles de paginação
-  const renderPaginacao = () => {
-    if (totalItens <= itensPorPagina) return null;
-
-    const paginas = [];
-    const maxBotoes = 5;
-    let inicioPaginas = Math.max(1, paginaAtual - Math.floor(maxBotoes / 2));
-    let fimPaginas = Math.min(totalPaginas, inicioPaginas + maxBotoes - 1);
-
-    // Ajusta se estiver perto do início/fim
-    if (fimPaginas - inicioPaginas + 1 < maxBotoes) {
-      inicioPaginas = Math.max(1, fimPaginas - maxBotoes + 1);
-    }
-
-    for (let i = inicioPaginas; i <= fimPaginas; i++) {
-      paginas.push(
-        <TouchableOpacity
-          key={i}
-          style={[
-            styles.paginaButton,
-            paginaAtual === i && styles.paginaButtonActive
-          ]}
-          onPress={() => irParaPagina(i)}
-        >
-          <Text style={[
-            styles.paginaButtonText,
-            paginaAtual === i && styles.paginaButtonTextActive
-          ]}>
-            {i}
-          </Text>
-        </TouchableOpacity>
-      );
-    }
-
-    return (
-      <View style={styles.paginacaoContainer}>
-        <TouchableOpacity
-          style={[styles.navButton, paginaAtual === 1 && styles.navButtonDisabled]}
-          onPress={irParaPaginaAnterior}
-          disabled={paginaAtual === 1}
-        >
-          <Ionicons name="chevron-back" size={16} color={paginaAtual === 1 ? '#999' : '#333'} />
-          <Text style={[
-            styles.navButtonText,
-            paginaAtual === 1 && styles.navButtonTextDisabled
-          ]}>
-            Anterior
-          </Text>
-        </TouchableOpacity>
-
-        <View style={styles.paginasContainer}>
-          {paginas}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.navButton, paginaAtual === totalPaginas && styles.navButtonDisabled]}
-          onPress={irParaProximaPagina}
-          disabled={paginaAtual === totalPaginas}
-        >
-          <Text style={[
-            styles.navButtonText,
-            paginaAtual === totalPaginas && styles.navButtonTextDisabled
-          ]}>
-            Próxima
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color={paginaAtual === totalPaginas ? '#999' : '#333'} />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   // Conteúdo principal
   const renderContent = () => {
     if (loading && quarteiroes.length === 0) {
       return (
         <View style={styles.loadingContainer}>
-          <MaterialIcons name="hourglass-empty" size={48} color="#666" />
+          <Ionicons name="hourglass-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.loadingText}>Carregando quarteirões...</Text>
         </View>
       );
@@ -677,13 +689,20 @@ const CadastroQuarteirao: React.FC = () => {
       <View style={{ flex: 1 }}>
         <ScrollView 
           style={styles.scrollContainer}
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 160) {
+              setVisibleCount((current) => Math.min(current + PAGE_SIZE, quarteiroesFiltrados.length));
+            }
+          }}
+          scrollEventThrottle={200}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
           {/* Lista de quarteirões */}
           <View style={styles.quarteiroesList}>
-            {quarteiroesPagina.map((q) => (
+            {quarteiroesVisiveis.map((q) => (
               <View key={`quarteirao-${q.id}`}>
                 {renderQuarteiraoItem(q)}
               </View>
@@ -691,8 +710,6 @@ const CadastroQuarteirao: React.FC = () => {
           </View>
         </ScrollView>
 
-        {/* Controles de paginação */}
-        {renderPaginacao()}
       </View>
     );
   };
@@ -702,23 +719,24 @@ const CadastroQuarteirao: React.FC = () => {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Quarteirões Cadastrados</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Quarteirões Cadastrados</Text>
         <View style={styles.headerRight} />
       </View>
 
       {/* Barra de busca */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.input, borderColor: colors.border }]}>
+          <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholderTextColor={colors.placeholder}
             placeholder="Buscar quarteirão, localidade ou zona..."
             value={busca}
             onChangeText={setBusca}
@@ -726,20 +744,20 @@ const CadastroQuarteirao: React.FC = () => {
           />
           {busca.length > 0 && (
             <TouchableOpacity onPress={() => setBusca('')} style={styles.clearButton}>
-              <Ionicons name="close" size={18} color="#666" />
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
-        <Text style={styles.resultadosText}>
+        <Text style={[styles.resultadosText, { color: colors.textSecondary }]}>
           {busca ? `🔍 ${quarteiroesFiltrados.length} resultado(s) encontrado(s)` : ''}
         </Text>
       </View>
 
       {/* Controles superiores */}
-      <View style={styles.controls}>
+      <View style={[styles.controls, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View style={styles.controlsLeft}>
           <TouchableOpacity 
-            style={styles.newButton}
+            style={[styles.newButton, { backgroundColor: colors.primary }]}
             onPress={abrirModalCadastro}
           >
             <Ionicons name="add" size={20} color="#FFFFFF" style={styles.plusIcon} />
@@ -747,70 +765,30 @@ const CadastroQuarteirao: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.controlsRight}>
-          {/* Selecionar itens por página */}
-          <View style={styles.itemsPerPageContainer}>
-            <Text style={styles.itemsPerPageLabel}>Itens por página:</Text>
-            <View style={styles.itemsPerPageButtons}>
-              {opcoesItensPorPagina.map((quantidade) => (
-                <TouchableOpacity
-                  key={`items-${quantidade}`}
-                  style={[
-                    styles.itemsPerPageButton,
-                    itensPorPagina === quantidade && styles.itemsPerPageButtonActive
-                  ]}
-                  onPress={() => {
-                    setItensPorPagina(quantidade);
-                    setPaginaAtual(1); // Volta para primeira página
-                  }}
-                >
-                  <Text style={[
-                    styles.itemsPerPageButtonText,
-                    itensPorPagina === quantidade && styles.itemsPerPageButtonTextActive
-                  ]}>
-                    {quantidade}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
       </View>
 
       {/* Conteúdo */}
       {renderContent()}
 
-      {/* Informações da paginação */}
-      {quarteiroesFiltrados.length > 0 && (
-        <View style={styles.paginationInfo}>
-          <Text style={styles.paginationText}>
-            Mostrando {inicio + 1} - {Math.min(fim, totalItens)} de {totalItens} quarteirões
-          </Text>
-          <Text style={styles.paginationText}>
-            Página {paginaAtual} de {totalPaginas}
-          </Text>
-        </View>
-      )}
-
       {/* Resumo */}
       {quarteiroesFiltrados.length > 0 && (
-        <View style={styles.summary}>
+        <View style={[styles.summary, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <View style={styles.summaryItem}>
-            <Ionicons name="stats-chart" size={16} color="#666" style={styles.summaryIcon} />
-            <Text style={styles.summaryLabel}>Total:</Text>
-            <Text style={styles.summaryValue}>{totalItens}</Text>
+            <Ionicons name="stats-chart" size={16} color={colors.textSecondary} style={styles.summaryIcon} />
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total:</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{totalItens}</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Ionicons name="resize" size={16} color="#666" style={styles.summaryIcon} />
-            <Text style={styles.summaryLabel}>Área Total:</Text>
-            <Text style={styles.summaryValue}>
+            <Ionicons name="resize" size={16} color={colors.textSecondary} style={styles.summaryIcon} />
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Área Total:</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
               {quarteiroesFiltrados.reduce((sum, q) => sum + q.area, 0).toFixed(1)} ha
             </Text>
           </View>
           <View style={styles.summaryItem}>
             <Ionicons name="checkmark-circle" size={16} color="#4CAF50" style={styles.summaryIcon} />
-            <Text style={styles.summaryLabel}>Ativos:</Text>
-            <Text style={styles.summaryValue}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Ativos:</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
               {quarteiroesFiltrados.filter(q => q.status === 'Ativo').length}
             </Text>
           </View>
@@ -822,19 +800,19 @@ const CadastroQuarteirao: React.FC = () => {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => { if (autoSaveStatus !== 'saving') setModalVisible(false); }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {editando ? 'Editar Quarteirão' : 'Novo Quarteirão'}
               </Text>
               <TouchableOpacity 
-                onPress={() => setModalVisible(false)}
+                onPress={() => { if (autoSaveStatus !== 'saving') setModalVisible(false); }}
                 style={styles.closeButton}
               >
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -845,10 +823,11 @@ const CadastroQuarteirao: React.FC = () => {
             >
               {/* Mapa */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Polígono no Mapa *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Polígono no Mapa *</Text>
                 <QuarteiraoMapWebView
                   ref={mapRef}
                   initialPolygon={mapData?.geojson ?? null}
+                  allowCreate={!editando}
                   onReady={() => setMapReady(true)}
                   onPolygonChanged={(data) => setMapData(data)}
                   parentScrollRef={modalScrollRef}
@@ -856,7 +835,7 @@ const CadastroQuarteirao: React.FC = () => {
                 />
                 {/* Preview dos dados capturados */}
                 <View style={styles.mapPreview}>
-                  <Text style={styles.mapPreviewText}>
+                  <Text style={[styles.mapPreviewText, { color: colors.textSecondary }]}>
                     {mapData
                       ? `✅ Polígono capturado  |  Centro: ${mapData.centroid.lat.toFixed(5)}, ${mapData.centroid.lng.toFixed(5)}  |  Área: ${(mapData.area_m2 / 10000).toFixed(2)} ha`
                       : '⚠️ Nenhum polígono desenhado'}
@@ -869,9 +848,10 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Número do Quarteirão *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Número do Quarteirão *</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.input, borderColor: colors.border }]}
+                  placeholderTextColor={colors.placeholder}
                   placeholder="Ex: 1"
                   value={formData.numero}
                   onChangeText={(text) => setFormData({ ...formData, numero: text })}
@@ -880,9 +860,10 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nome do Quarteirão *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Nome do Quarteirão *</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.input, borderColor: colors.border }]}
+                  placeholderTextColor={colors.placeholder}
                   placeholder="Ex: Quarteirão Norte"
                   value={formData.nome}
                   onChangeText={(text) => setFormData({ ...formData, nome: text.toUpperCase() })}
@@ -891,37 +872,38 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Localidade *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Localidade *</Text>
                 <TouchableOpacity
-                  style={styles.selectField}
+                  style={[styles.selectField, { backgroundColor: colors.input, borderColor: colors.border }]}
                   onPress={() => setSeletorAberto('localidade')}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.selectFieldText, !formData.localidade && styles.selectFieldPlaceholder]}>
+                  <Text style={[styles.selectFieldText, { color: formData.localidade ? colors.text : colors.placeholder }]}>
                     {formData.localidade || 'Selecione uma localidade'}
                   </Text>
-                  <Ionicons name="chevron-down" size={20} color="#55718F" />
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Zona *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Zona *</Text>
                 <TouchableOpacity
-                  style={styles.selectField}
+                  style={[styles.selectField, { backgroundColor: colors.input, borderColor: colors.border }]}
                   onPress={() => setSeletorAberto('zona')}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.selectFieldText, !formData.zona && styles.selectFieldPlaceholder]}>
+                  <Text style={[styles.selectFieldText, { color: formData.zona ? colors.text : colors.placeholder }]}>
                     {formData.zona || 'Selecione uma zona'}
                   </Text>
-                  <Ionicons name="chevron-down" size={20} color="#55718F" />
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Área (hectares) (opcional)</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Área (hectares) (opcional)</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.input, borderColor: colors.border }]}
+                  placeholderTextColor={colors.placeholder}
                   placeholder="Ex: 5.2"
                   value={formData.area}
                   onChangeText={(text) => setFormData({ ...formData, area: text })}
@@ -930,9 +912,10 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Descrição (opcional)</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Descrição (opcional)</Text>
                 <TextInput
-                  style={[styles.input, styles.textArea]}
+                  style={[styles.input, styles.textArea, { color: colors.text, backgroundColor: colors.input, borderColor: colors.border }]}
+                  placeholderTextColor={colors.placeholder}
                   placeholder="Descreva este quarteirão..."
                   value={formData.descricao}
                   onChangeText={(text) => setFormData({ ...formData, descricao: text })}
@@ -942,7 +925,7 @@ const CadastroQuarteirao: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Status</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Status</Text>
                 <View style={styles.radioGroup}>
                   <TouchableOpacity
                     key="ativo"
@@ -954,7 +937,7 @@ const CadastroQuarteirao: React.FC = () => {
                       size={24} 
                       color={formData.status === 'Ativo' ? '#4CAF50' : '#999'} 
                     />
-                    <Text style={styles.radioLabel}>Ativo</Text>
+                    <Text style={[styles.radioLabel, { color: colors.text }]}>Ativo</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity
@@ -967,7 +950,7 @@ const CadastroQuarteirao: React.FC = () => {
                       size={24} 
                       color={formData.status === 'Inativo' ? '#FF9800' : '#999'} 
                     />
-                    <Text style={styles.radioLabel}>Inativo</Text>
+                    <Text style={[styles.radioLabel, { color: colors.text }]}>Inativo</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -976,7 +959,7 @@ const CadastroQuarteirao: React.FC = () => {
               {!tabelaExiste && (
                 <View style={styles.dataWarning}>
                   <Ionicons name="save-outline" size={22} color="#F57C00" style={styles.warningIcon} />
-                  <Text style={styles.warningText}>
+                  <Text style={[styles.warningText, { color: colors.warning }]}>
                     Dados sendo salvos localmente
                   </Text>
                 </View>
@@ -986,19 +969,30 @@ const CadastroQuarteirao: React.FC = () => {
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
+                onPress={() => autoSaveStatus !== 'saving' && setModalVisible(false)}
+                disabled={autoSaveStatus === 'saving'}
               >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text style={styles.cancelButtonText}>{editando ? 'Fechar' : 'Cancelar'}</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity
+              {editando && <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={cancelarAtualizacao}
+                disabled={autoSaveStatus === 'saving'}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>}
+
+              {editando ? (
+                <Text numberOfLines={2} style={{ color: autoSaveStatus === 'error' ? colors.danger : colors.textSecondary, alignSelf: 'center', flexShrink: 1, fontSize: 12, marginHorizontal: 4 }}>
+                  {autoSaveStatus === 'saving' ? 'Salvando alterações…' : autoSaveStatus === 'error' ? 'Falha ao salvar. Tente novamente.' : 'Alterações salvas automaticamente'}
+                </Text>
+              ) : <TouchableOpacity
                 style={[styles.modalButton, styles.saveButton]}
                 onPress={salvarQuarteirao}
               >
-                <Text style={styles.saveButtonText}>
-                  {editando ? 'Atualizar' : 'Cadastrar'}
-                </Text>
-              </TouchableOpacity>
+                <Text style={styles.saveButtonText}>Cadastrar</Text>
+              </TouchableOpacity>}
             </View>
           </View>
         </View>
@@ -1011,13 +1005,13 @@ const CadastroQuarteirao: React.FC = () => {
         onRequestClose={() => setSeletorAberto(null)}
       >
         <View style={styles.selectorOverlay}>
-          <View style={styles.selectorContent}>
+          <View style={[styles.selectorContent, { backgroundColor: colors.card }]}>
             <View style={styles.selectorHeader}>
-              <Text style={styles.selectorTitle}>
+              <Text style={[styles.selectorTitle, { color: colors.text }]}>
                 {seletorAberto === 'localidade' ? 'Selecionar localidade' : 'Selecionar zona'}
               </Text>
               <TouchableOpacity onPress={() => setSeletorAberto(null)} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color="#55718F" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView
@@ -1044,10 +1038,10 @@ const CadastroQuarteirao: React.FC = () => {
                       setSeletorAberto(null);
                     }}
                   >
-                    <Text style={[styles.pickerOptionText, selecionado && styles.pickerOptionTextSelected]}>
+                    <Text style={[styles.pickerOptionText, { color: colors.text }, selecionado && { color: colors.primary }]}>
                       {selecionado ? '✓ ' : ''}{nome}{codigo ? ` - ${codigo}` : ''}
                     </Text>
-                    {selecionado && <Ionicons name="checkmark" size={20} color="#2F80ED" />}
+                    {selecionado && <Ionicons name="checkmark" size={20} color={colors.primary} />}
                   </TouchableOpacity>
                 );
               })}

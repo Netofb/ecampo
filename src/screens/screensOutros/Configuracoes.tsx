@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getApiUrlForDisplay } from '../../services/api';
 
 const Configuracoes: React.FC = () => {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, toggleTheme } = useTheme();
   const apiUrl = getApiUrlForDisplay();
   
   const testarConexao = async () => {
@@ -81,7 +81,17 @@ const Configuracoes: React.FC = () => {
           </View>
           <View style={styles.infoRow}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Tema:</Text>
-            <Text style={[styles.value, { color: colors.text }]}>{isDark ? 'Escuro' : 'Claro'}</Text>
+            <View style={styles.themeRow}>
+              <Text style={[styles.value, { color: colors.text }]}>{isDark ? 'Escuro' : 'Claro'}</Text>
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.card}
+                ios_backgroundColor={colors.border}
+                accessibilityLabel="Alternar entre tema claro e escuro"
+              />
+            </View>
           </View>
         </View>
 
@@ -130,6 +140,11 @@ const styles = StyleSheet.create({
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   infoRow: {
     marginBottom: 12,
+  },
+  themeRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   label: {
     fontSize: 14,

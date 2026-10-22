@@ -6,7 +6,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { imovelService } from '../../services/api';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 
 type FeatureCollection = {
@@ -287,7 +287,7 @@ const MapaImoveis: React.FC = () => {
         </TouchableOpacity>
 
         <View style={{ flex: 1, marginLeft: 8, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-          <FontAwesome5 name="house-user" size={18} color={colors.location} style={{ marginRight: 15 }} />
+          <Ionicons name="home-outline" size={18} color={colors.location} style={{ marginRight: 15 }} />
           <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}> Mapa de Imóveis</Text>
           {!!selectedLabel && <Text style={{ marginTop: 4, opacity: 0.8, color: colors.textSecondary }}>{selectedLabel}</Text>}
         </View>
@@ -297,7 +297,7 @@ const MapaImoveis: React.FC = () => {
           style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={{ fontWeight: '800', color: colors.text }}><FontAwesome5 name="sync" size={18} color={colors.location} style={{ marginRight: 8 }} /></Text>}
+          {loading ? <ActivityIndicator size="small" color={colors.primary} /> : <Ionicons name="sync-outline" size={18} color={colors.location} style={{ marginRight: 8 }} />}
         </TouchableOpacity>
       </View>
 

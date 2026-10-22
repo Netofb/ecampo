@@ -35,3 +35,13 @@ export async function addFaceLocal(data: Omit<FaceLocal, 'id_face' | 'createdAt'
   await addAuditoriaLocal({ entidade: 'face', acao: 'create', referencia: face.id_face, resumo: `Face ${face.numero_face} pendente` });
   return face;
 }
+
+export async function updateFaceLocal(id: string, data: Omit<FaceLocal, 'id_face' | 'createdAt' | 'syncStatus'>) {
+  const current = await listFacesLocais();
+  const existing = current.find(face => face.id_face === id);
+  if (!existing) throw new Error('Face local não encontrada');
+  const updated = { ...existing, ...data, syncStatus: 'pending' as const };
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(current.map(face => face.id_face === id ? updated : face)));
+  await addAuditoriaLocal({ entidade: 'face', acao: 'update', referencia: id, resumo: `Face ${updated.numero_face} atualizada localmente` });
+  return updated;
+}

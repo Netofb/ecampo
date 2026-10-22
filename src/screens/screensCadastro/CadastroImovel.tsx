@@ -51,6 +51,7 @@ const DropdownOption: React.FC<{ label: string; selected: boolean; onPress: () =
 );
 
 const CadastroImovel: React.FC = () => {
+  const PAGE_SIZE = 20;
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
@@ -59,9 +60,7 @@ const CadastroImovel: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [busca, setBusca] = useState('');
   
-  const [paginaAtual, setPaginaAtual] = useState(1);
-  const [itensPorPagina, setItensPorPagina] = useState(10);
-  const [opcoesItensPorPagina] = useState([5, 10, 20, 50]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   
   const [formData, setFormData] = useState({
     id_quarteirao: '',
@@ -96,25 +95,17 @@ const CadastroImovel: React.FC = () => {
     lng: Number(quarteiraoSelecionado?.longitude_quadra ?? quarteiraoSelecionado?.longitude) || -35.4508,
   };
 
-  const totalItens = imoveisFiltrados.length;
-  const totalPaginas = Math.ceil(totalItens / itensPorPagina);
-  
   useEffect(() => {
-    if (paginaAtual > totalPaginas && totalPaginas > 0) {
-      setPaginaAtual(totalPaginas);
-    }
-  }, [totalItens, itensPorPagina]);
-
-  const inicio = (paginaAtual - 1) * itensPorPagina;
-  const fim = inicio + itensPorPagina;
-  const imoveisPagina = imoveisFiltrados.slice(inicio, fim);
+    setVisibleCount(PAGE_SIZE);
+  }, [busca]);
+  const imoveisVisiveis = imoveisFiltrados.slice(0, visibleCount);
 
   const carregarImoveis = async () => {
     try {
       setLoading(true);
       const data = await imovelService.list();
       setImoveis(data);
-      setPaginaAtual(1);
+      setVisibleCount(PAGE_SIZE);
     } catch (error) {
       console.error('Erro ao carregar imóveis:', error);
       const locais = await listImoveisLocais();
@@ -126,7 +117,7 @@ const CadastroImovel: React.FC = () => {
         numero_quadra: 0,
         numero_face: 0,
       })));
-      setPaginaAtual(1);
+      setVisibleCount(PAGE_SIZE);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -359,33 +350,6 @@ const CadastroImovel: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.controlsRight}>
-          <View style={styles.itemsPerPageContainer}>
-            <Text style={styles.itemsPerPageLabel}>Itens por página:</Text>
-            <View style={styles.itemsPerPageButtons}>
-              {opcoesItensPorPagina.map((quantidade) => (
-                <TouchableOpacity
-                  key={`items-${quantidade}`}
-                  style={[
-                    styles.itemsPerPageButton,
-                    itensPorPagina === quantidade && styles.itemsPerPageButtonActive
-                  ]}
-                  onPress={() => {
-                    setItensPorPagina(quantidade);
-                    setPaginaAtual(1);
-                  }}
-                >
-                  <Text style={[
-                    styles.itemsPerPageButtonText,
-                    itensPorPagina === quantidade && styles.itemsPerPageButtonTextActive
-                  ]}>
-                    {quantidade}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
       </View>
 
       {loading && imoveis.length === 0 ? (
@@ -411,67 +375,19 @@ const CadastroImovel: React.FC = () => {
         </View>
       ) : (
         <View style={{ flex: 1 }}>
-          <ScrollView style={styles.scrollContainer} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-            {imoveisPagina.map(renderImovelCard)}
+          <ScrollView
+            style={styles.scrollContainer}
+            onScroll={({ nativeEvent }) => {
+              const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+              if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 160) {
+                setVisibleCount((current) => Math.min(current + PAGE_SIZE, imoveisFiltrados.length));
+              }
+            }}
+            scrollEventThrottle={200}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          >
+            {imoveisVisiveis.map(renderImovelCard)}
           </ScrollView>
-
-          {totalItens > itensPorPagina && (
-            <View style={[styles.paginacaoContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-              <TouchableOpacity
-                style={[styles.navButton, paginaAtual === 1 && styles.navButtonDisabled]}
-                onPress={() => paginaAtual > 1 && setPaginaAtual(paginaAtual - 1)}
-                disabled={paginaAtual === 1}
-              >
-                <Ionicons name="chevron-back" size={18} color={paginaAtual === 1 ? colors.textSecondary : colors.text} />
-                <Text style={[styles.navButtonText, { color: colors.text }, paginaAtual === 1 && styles.navButtonTextDisabled]}>Anterior</Text>
-              </TouchableOpacity>
-
-              <View style={styles.paginasContainer}>
-                {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-                  const inicioPaginas = Math.max(1, paginaAtual - 2);
-                  const pagina = inicioPaginas + i;
-                  if (pagina > totalPaginas) return null;
-                  return (
-                    <TouchableOpacity
-                      key={pagina}
-                      style={[
-                        styles.paginaButton,
-                        paginaAtual === pagina && styles.paginaButtonActive
-                      ]}
-                      onPress={() => setPaginaAtual(pagina)}
-                    >
-                      <Text style={[
-                        styles.paginaButtonText,
-                        paginaAtual === pagina && styles.paginaButtonTextActive
-                      ]}>
-                        {pagina}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.navButton, paginaAtual === totalPaginas && styles.navButtonDisabled]}
-                onPress={() => paginaAtual < totalPaginas && setPaginaAtual(paginaAtual + 1)}
-                disabled={paginaAtual === totalPaginas}
-              >
-                <Text style={[styles.navButtonText, { color: colors.text }, paginaAtual === totalPaginas && styles.navButtonTextDisabled]}>Próxima</Text>
-                <Ionicons name="chevron-forward" size={18} color={paginaAtual === totalPaginas ? colors.textSecondary : colors.text} />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
-
-      {imoveisFiltrados.length > 0 && (
-        <View style={[styles.paginationInfo, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <Text style={[styles.paginationText, { color: colors.textSecondary }]}>
-            Mostrando {inicio + 1} - {Math.min(fim, totalItens)} de {totalItens} imóveis
-          </Text>
-          <Text style={[styles.paginationText, { color: colors.textSecondary }]}>
-            Página {paginaAtual} de {totalPaginas}
-          </Text>
         </View>
       )}
 

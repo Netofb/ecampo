@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const ProducaoControle: React.FC = () => {
+  const { colors } = useTheme();
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Producao Controle</Text>
-      <Text>Tela de producao controle - Em construção...</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Producao Controle</Text>
+      <Text style={{ color: colors.textSecondary }}>Tela de producao controle - Em construção...</Text>
     </View>
   );
 };
@@ -14,7 +16,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#F5F5F7',
     justifyContent: 'center',
     alignItems: 'center',
   },

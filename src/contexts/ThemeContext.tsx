@@ -1,5 +1,6 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ThemeColors {
   background: string;
@@ -25,6 +26,7 @@ interface ThemeColors {
 interface Theme {
   colors: ThemeColors;
   isDark: boolean;
+  toggleTheme: () => void;
 }
 const lightTheme: ThemeColors = {
   background: '#F7F8F5',
@@ -71,15 +73,38 @@ const darkTheme: ThemeColors = {
 const ThemeContext = createContext<Theme>({
   colors: lightTheme,
   isDark: false,
+  toggleTheme: () => undefined,
 });
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  
+  const [themeOverride, setThemeOverride] = React.useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    AsyncStorage.getItem('@ecampo/theme')
+      .then(value => {
+        if (value === 'dark') setThemeOverride(true);
+        if (value === 'light') setThemeOverride(false);
+      })
+      .catch(error => {
+        console.error('Theme preference load error:', error);
+      });
+  }, []);
+
+  const isDark = themeOverride ?? colorScheme === 'dark';
+  const toggleTheme = React.useCallback(() => {
+    const nextIsDark = !isDark;
+    setThemeOverride(nextIsDark);
+    AsyncStorage.setItem('@ecampo/theme', nextIsDark ? 'dark' : 'light')
+      .catch(error => {
+        console.error('Theme preference save error:', error);
+      });
+  }, [isDark]);
+
   const theme: Theme = {
     colors: isDark ? darkTheme : lightTheme,
     isDark,
+    toggleTheme,
   };
 
   return (

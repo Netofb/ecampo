@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { faceService, quarteiraoService, authService } from '../../services/api';
-import { addFaceLocal, listFacesLocais } from '../../services/faceLocal';
+import { addFaceLocal, listFacesLocais, updateFaceLocal } from '../../services/faceLocal';
 import FacesMapWebView from '../../components/FacesMapWebView';
 import FaceLineMapEditor, { FaceLineMapData } from '../../components/FaceLineMapEditor';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface Face {
   id_face: number;
@@ -33,19 +34,20 @@ interface Face {
   cor_linha?: string;
   latitude?: string | number;
   longitude?: string | number;
+  local_id?: string;
 }
 
 const CadastroFace: React.FC = () => {
+  const PAGE_SIZE = 20;
   const navigation = useNavigation();
+  const { colors, isDark } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
   const [editando, setEditando] = useState(false);
   const [faceEditando, setFaceEditando] = useState<Face | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busca, setBusca] = useState('');
   
-  const [paginaAtual, setPaginaAtual] = useState(1);
-  const [itensPorPagina, setItensPorPagina] = useState(10);
-  const [opcoesItensPorPagina] = useState([5, 10, 20, 50]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   
   const [formData, setFormData] = useState({
     numero_face: '',
@@ -61,6 +63,9 @@ const CadastroFace: React.FC = () => {
   const [faceMapData, setFaceMapData] = useState<FaceLineMapData | null>(null);
   const [faceColor] = useState('#1565C0');
   const [seletorAberto, setSeletorAberto] = useState<'status' | 'quarteirao' | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const lastSavedEditRef = useRef<string | null>(null);
+  const originalEditRef = useRef<{ formData: typeof formData; faceMapData: FaceLineMapData | null; face: Face } | null>(null);
 
   const quarteiraoSelecionado = quarteiroes.find(
     (quarteirao) => quarteirao.id_quadra?.toString() === formData.id_quarteirao
@@ -77,34 +82,66 @@ const CadastroFace: React.FC = () => {
     (face.nome_quadra || '').toLowerCase().includes(busca.toLowerCase())
   ).sort((a, b) => a.numero_face - b.numero_face);
 
-  const totalItens = facesFiltradas.length;
-  const totalPaginas = Math.ceil(totalItens / itensPorPagina);
-  
   useEffect(() => {
-    if (paginaAtual > totalPaginas && totalPaginas > 0) {
-      setPaginaAtual(totalPaginas);
-    }
-  }, [totalItens, itensPorPagina]);
+    setVisibleCount(PAGE_SIZE);
+  }, [busca]);
 
-  const inicio = (paginaAtual - 1) * itensPorPagina;
-  const fim = inicio + itensPorPagina;
-  const facesPagina = facesFiltradas.slice(inicio, fim);
+  const facesVisiveis = facesFiltradas.slice(0, visibleCount);
+
+  useEffect(() => {
+    if (!modalVisible || !editando || !faceEditando || !faceMapData) return;
+    const snapshot = JSON.stringify({ formData, faceMapData });
+    if (lastSavedEditRef.current === null) {
+      lastSavedEditRef.current = snapshot;
+      return;
+    }
+    if (snapshot === lastSavedEditRef.current) return;
+
+    setAutoSaveStatus('saving');
+    const timeout = setTimeout(async () => {
+      const payload = {
+        numero_face: Number.parseInt(formData.numero_face, 10),
+        id_quarteirao: Number.parseInt(formData.id_quarteirao, 10),
+        nome_linha: formData.nome_linha,
+        status: formData.status,
+        linha_geojson: faceMapData.geojson,
+        cor_linha: faceColor,
+        latitude: faceMapData.centroid.lat,
+        longitude: faceMapData.centroid.lng,
+      };
+      try {
+        if (faceEditando.local_id) {
+          await updateFaceLocal(faceEditando.local_id, payload);
+        } else {
+          await faceService.update(faceEditando.id_face, payload);
+        }
+        lastSavedEditRef.current = snapshot;
+        setAutoSaveStatus('saved');
+        setFaces(current => current.map(face => face.id_face === faceEditando.id_face ? { ...face, ...payload } : face));
+        setMapRefreshKey(value => value + 1);
+      } catch {
+        setAutoSaveStatus('error');
+      }
+    }, 700);
+    return () => clearTimeout(timeout);
+  }, [modalVisible, editando, faceEditando, formData, faceMapData, faceColor]);
 
   const carregarFaces = async () => {
     try {
       setLoading(true);
       const data = await faceService.list();
       setFaces(data);
-      setPaginaAtual(1);
+      setVisibleCount(PAGE_SIZE);
     } catch (error) {
       const locais = await listFacesLocais();
       setFaces(locais.map((face, index) => ({
         ...face,
         id_face: -(index + 1),
+        local_id: face.id_face,
         nome_quadra: 'Quarteirão local',
         numero_quadra: 0,
       })));
-      setPaginaAtual(1);
+      setVisibleCount(PAGE_SIZE);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -138,6 +175,9 @@ const CadastroFace: React.FC = () => {
   };
 
   const abrirModalCadastro = () => {
+    lastSavedEditRef.current = null;
+    originalEditRef.current = null;
+    setAutoSaveStatus('saved');
     setEditando(false);
     setFaceEditando(null);
     setFormData({
@@ -152,20 +192,61 @@ const CadastroFace: React.FC = () => {
   };
 
   const abrirModalEdicao = (face: Face) => {
+    lastSavedEditRef.current = null;
+    setAutoSaveStatus('saved');
     setEditando(true);
     setFaceEditando(face);
-    setFormData({
+    const initialFormData = {
       numero_face: face.numero_face.toString(),
       id_quarteirao: face.id_quarteirao.toString(),
       nome_linha: (face as any).nome_linha || '',
       status: face.status,
-    });
+    };
     const linhaExistente = typeof face.linha_geojson === 'string' ? (() => {
       try { return JSON.parse(face.linha_geojson); } catch { return null; }
     })() : face.linha_geojson;
-    setFaceMapData(linhaExistente ? { geojson: linhaExistente, centroid: { lat: Number(face.latitude), lng: Number(face.longitude) } } : null);
+    const initialFaceMapData = linhaExistente ? { geojson: linhaExistente, centroid: { lat: Number(face.latitude), lng: Number(face.longitude) } } : null;
+    originalEditRef.current = { formData: initialFormData, faceMapData: initialFaceMapData, face };
+    setFormData(initialFormData);
+    setFaceMapData(initialFaceMapData);
     setSeletorAberto(null);
     setModalVisible(true);
+  };
+
+  const cancelarAtualizacao = async () => {
+    const original = originalEditRef.current;
+    if (!original) {
+      setModalVisible(false);
+      return;
+    }
+    setAutoSaveStatus('saving');
+    const payload = {
+      numero_face: Number.parseInt(original.formData.numero_face, 10),
+      id_quarteirao: Number.parseInt(original.formData.id_quarteirao, 10),
+      nome_linha: original.formData.nome_linha,
+      status: original.formData.status,
+      linha_geojson: original.faceMapData?.geojson ?? null,
+      cor_linha: original.face.cor_linha || faceColor,
+      latitude: original.faceMapData?.centroid.lat ?? null,
+      longitude: original.faceMapData?.centroid.lng ?? null,
+    };
+    try {
+      if (original.face.local_id) {
+        await updateFaceLocal(original.face.local_id, payload);
+      } else {
+        await faceService.update(original.face.id_face, payload);
+      }
+      setFormData(original.formData);
+      setFaceMapData(original.faceMapData);
+      setFaces(current => current.map(face => face.id_face === original.face.id_face ? { ...face, ...payload } : face));
+      lastSavedEditRef.current = JSON.stringify({ formData: original.formData, faceMapData: original.faceMapData });
+      setAutoSaveStatus('saved');
+      setMapRefreshKey(value => value + 1);
+      setModalVisible(false);
+    } catch {
+      setAutoSaveStatus('error');
+      Alert.alert('Erro', 'Não foi possível cancelar a atualização e restaurar os dados originais.');
+    }
   };
 
   const salvarFace = async () => {
@@ -251,15 +332,15 @@ const CadastroFace: React.FC = () => {
 
   const renderFaceCard = (face: Face) => {
     return (
-      <View style={styles.card} key={face.id_face}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} key={face.id_face}>
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderLeft}>
             <View style={styles.numeroContainer}>
               <Ionicons name="git-branch-outline" size={22} color="#FFFFFF" />
             </View>
             <View style={styles.nomeContainer}>
-              <Text style={styles.nomeText}>Face {face.numero_face}</Text>
-              <Text style={styles.numeroQuarteiraoText}>{face.nome_quadra || 'Quarteirão'} · QUARTEIRÃO {face.numero_quadra || '-'}</Text>
+              <Text style={[styles.nomeText, { color: colors.text }]}>Face {face.numero_face}</Text>
+              <Text style={[styles.numeroQuarteiraoText, { color: colors.textSecondary }]}>{face.nome_quadra || 'Quarteirão'} · QUARTEIRÃO {face.numero_quadra || '-'}</Text>
             </View>
           </View>
           <View style={[styles.statusPill, face.status === 'Ativo' ? styles.activePill : styles.inactivePill]}>
@@ -271,15 +352,15 @@ const CadastroFace: React.FC = () => {
 
         <FacesMapWebView refreshKey={mapRefreshKey} faceId={face.id_face} />
 
-        <View style={styles.tableHeader}>
-          <Text style={[styles.tableHeaderText, styles.nameColumn]}>NOME DA LINHA</Text>
-          <Text style={[styles.tableHeaderText, styles.actionsColumn]}>AÇÕES</Text>
+        <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.tableHeaderText, { color: colors.textSecondary }, styles.nameColumn]}>NOME DA LINHA</Text>
+          <Text style={[styles.tableHeaderText, { color: colors.textSecondary }, styles.actionsColumn]}>AÇÕES</Text>
         </View>
 
         <View style={styles.faceRow}>
           <View style={[styles.faceColumn, styles.faceNumberCell]}>
             <View style={styles.faceLine} />
-            <Text style={styles.faceNumberText}>{(face as any).nome_linha || 'Linha da face'}</Text>
+            <Text style={[styles.faceNumberText, { color: colors.text }]}>{(face as any).nome_linha || 'Linha da face'}</Text>
           </View>
           <View style={[styles.rowActions, styles.actionsColumn]}>
             <TouchableOpacity style={styles.rowActionButton} onPress={() => abrirModalEdicao(face)}>
@@ -295,25 +376,26 @@ const CadastroFace: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Faces Cadastradas</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Faces Cadastradas</Text>
         <View style={styles.headerRight} />
       </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.input, borderColor: colors.border }]}>
+          <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholderTextColor={colors.placeholder}
             placeholder="Buscar face ou quarteirão..."
             value={busca}
             onChangeText={setBusca}
@@ -321,57 +403,32 @@ const CadastroFace: React.FC = () => {
           />
           {busca.length > 0 && (
             <TouchableOpacity onPress={() => setBusca('')} style={styles.clearButton}>
-              <Ionicons name="close" size={18} color="#666" />
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <View style={styles.controls}>
+      <View style={[styles.controls, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity 
-          style={styles.newButton}
+          style={[styles.newButton, { backgroundColor: colors.primary }]}
           onPress={abrirModalCadastro}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" style={styles.plusIcon} />
           <Text style={styles.newButtonText}>Nova Face</Text>
         </TouchableOpacity>
 
-        <View style={styles.itemsPerPageContainer}>
-          <Text style={styles.itemsPerPageLabel}>Itens por página:</Text>
-          <View style={styles.itemsPerPageButtons}>
-            {opcoesItensPorPagina.map((quantidade) => (
-              <TouchableOpacity
-                key={`items-${quantidade}`}
-                style={[
-                  styles.itemsPerPageButton,
-                  itensPorPagina === quantidade && styles.itemsPerPageButtonActive
-                ]}
-                onPress={() => {
-                  setItensPorPagina(quantidade);
-                  setPaginaAtual(1);
-                }}
-              >
-                <Text style={[
-                  styles.itemsPerPageButtonText,
-                  itensPorPagina === quantidade && styles.itemsPerPageButtonTextActive
-                ]}>
-                  {quantidade}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
       </View>
 
       {loading && faces.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <MaterialIcons name="hourglass-empty" size={48} color="#666" />
-          <Text style={styles.loadingText}>Carregando faces...</Text>
+          <Ionicons name="hourglass-outline" size={48} color={colors.textSecondary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Carregando faces...</Text>
         </View>
       ) : facesFiltradas.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="search" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {busca ? 'Nenhuma face encontrada' : 'Nenhuma face cadastrada'}
           </Text>
         </View>
@@ -379,69 +436,21 @@ const CadastroFace: React.FC = () => {
         <View style={{ flex: 1 }}>
           <ScrollView 
             style={styles.scrollContainer}
+            onScroll={({ nativeEvent }) => {
+              const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+              if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 160) {
+                setVisibleCount((current) => Math.min(current + PAGE_SIZE, facesFiltradas.length));
+              }
+            }}
+            scrollEventThrottle={200}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
           >
             <View style={styles.facesList}>
-              {facesPagina.map(renderFaceCard)}
+              {facesVisiveis.map(renderFaceCard)}
             </View>
           </ScrollView>
-
-          {totalItens > itensPorPagina && (
-            <View style={styles.paginacaoContainer}>
-              <TouchableOpacity
-                style={[styles.navButton, paginaAtual === 1 && styles.navButtonDisabled]}
-                onPress={() => setPaginaAtual(paginaAtual - 1)}
-                disabled={paginaAtual === 1}
-              >
-                <Ionicons name="chevron-back" size={16} color={paginaAtual === 1 ? '#999' : '#333'} />
-                <Text style={[styles.navButtonText, paginaAtual === 1 && styles.navButtonTextDisabled]}>
-                  Anterior
-                </Text>
-              </TouchableOpacity>
-
-              <View style={styles.paginasContainer}>
-                {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-                  const pagina = Math.max(1, Math.min(paginaAtual - 2, totalPaginas - 4)) + i;
-                  if (pagina > totalPaginas) return null;
-                  return (
-                    <TouchableOpacity
-                      key={pagina}
-                      style={[styles.paginaButton, paginaAtual === pagina && styles.paginaButtonActive]}
-                      onPress={() => setPaginaAtual(pagina)}
-                    >
-                      <Text style={[styles.paginaButtonText, paginaAtual === pagina && styles.paginaButtonTextActive]}>
-                        {pagina}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.navButton, paginaAtual === totalPaginas && styles.navButtonDisabled]}
-                onPress={() => setPaginaAtual(paginaAtual + 1)}
-                disabled={paginaAtual === totalPaginas}
-              >
-                <Text style={[styles.navButtonText, paginaAtual === totalPaginas && styles.navButtonTextDisabled]}>
-                  Próxima
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={paginaAtual === totalPaginas ? '#999' : '#333'} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {totalItens > 0 && (
-            <View style={styles.paginationInfo}>
-              <Text style={styles.paginationText}>
-                Mostrando {inicio + 1} - {Math.min(fim, totalItens)} de {totalItens} faces
-              </Text>
-              <Text style={styles.paginationText}>
-                Página {paginaAtual} de {totalPaginas}
-              </Text>
-            </View>
-          )}
         </View>
       )}
 
@@ -449,31 +458,32 @@ const CadastroFace: React.FC = () => {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => { setSeletorAberto(null); setModalVisible(false); }}
+          onRequestClose={() => { if (autoSaveStatus !== 'saving') { setSeletorAberto(null); setModalVisible(false); } }}
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {editando ? 'Editar Face' : 'Nova Face'}
               </Text>
               <TouchableOpacity 
-                onPress={() => { setSeletorAberto(null); setModalVisible(false); }}
+                onPress={() => { if (autoSaveStatus !== 'saving') { setSeletorAberto(null); setModalVisible(false); } }}
                 style={styles.closeButton}
               >
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalForm} contentContainerStyle={styles.modalFormContent} keyboardShouldPersistTaps="handled">
               <View style={[styles.formColumns, editando && styles.formColumnsVertical]}>
               <View style={[styles.inputGroup, styles.columnSmall]}>
-                <Text style={styles.label}>Número da Face *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Número da Face *</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.input, borderColor: colors.border }]}
+                  placeholderTextColor={colors.placeholder}
                   placeholder="Ex: 1"
                   value={formData.numero_face}
                   onChangeText={(text) => setFormData({ ...formData, numero_face: text })}
@@ -482,25 +492,26 @@ const CadastroFace: React.FC = () => {
               </View>
 
               <View style={[styles.inputGroup, styles.columnSmall]}>
-                <Text style={styles.label}>Status</Text>
-                <TouchableOpacity style={styles.selectField} onPress={() => setSeletorAberto('status')}>
-                  <Text style={styles.selectText}>{formData.status}</Text><Ionicons name="chevron-down" size={18} color="#163BFF" />
+                <Text style={[styles.label, { color: colors.text }]}>Status</Text>
+                <TouchableOpacity style={[styles.selectField, { backgroundColor: colors.input, borderColor: colors.border }]} onPress={() => setSeletorAberto('status')}>
+                  <Text style={[styles.selectText, { color: colors.text }]}>{formData.status}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} />
                 </TouchableOpacity>
               </View>
 
               <View style={[styles.inputGroup, styles.columnMedium]}>
-                <Text style={styles.label}>Selecione o quarteirão *</Text>
-                <TouchableOpacity style={styles.selectField} onPress={() => setSeletorAberto('quarteirao')}>
-                  <Text style={styles.selectText} numberOfLines={1}>{quarteiroes.find((q) => q.id_quadra.toString() === formData.id_quarteirao)?.nome_quadra || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color="#163BFF" />
+                <Text style={[styles.label, { color: colors.text }]}>Selecione o quarteirão *</Text>
+                <TouchableOpacity style={[styles.selectField, { backgroundColor: colors.input, borderColor: colors.border }]} onPress={() => setSeletorAberto('quarteirao')}>
+                  <Text style={[styles.selectText, { color: colors.text }]} numberOfLines={1}>{quarteiroes.find((q) => q.id_quadra.toString() === formData.id_quarteirao)?.nome_quadra || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} />
                 </TouchableOpacity>
               </View>
               </View>
 
               <View style={[styles.formColumns, editando && styles.formColumnsVertical]}>
               <View style={[styles.inputGroup, styles.columnWide]}>
-                <Text style={styles.label}>Nome da linha/polígono da face</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Nome da linha/polígono da face</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: colors.text, backgroundColor: colors.input, borderColor: colors.border }]}
+                  placeholderTextColor={colors.placeholder}
                   placeholder="Ex: Face norte, lado ímpar, quadra inteira"
                   value={formData.nome_linha}
                   onChangeText={(text) => setFormData({ ...formData, nome_linha: text.toUpperCase() })}
@@ -514,7 +525,7 @@ const CadastroFace: React.FC = () => {
               </View>
               </View>
 
-              <View style={styles.helpBox}><Text style={styles.helpTitle}>ⓘ Selecione as arestas da face:</Text><Text style={styles.helpText}>• Os lados do quarteirão aparecem em verde.{`\n`}• Toque em cada aresta que pertence à face.{`\n`}• Toque novamente para remover uma seleção.</Text></View>
+              <View style={[styles.helpBox, { backgroundColor: colors.card, borderColor: colors.border }]}><Text style={[styles.helpTitle, { color: colors.text } ]}>ⓘ Selecione as arestas da face:</Text><Text style={[styles.helpText, { color: colors.textSecondary }]}>• Os lados do quarteirão aparecem em verde.{`\n`}• Toque em cada aresta que pertence à face.{`\n`}• Toque novamente para remover uma seleção.</Text></View>
               <FaceLineMapEditor
                 height={220}
                 center={{ lat: Number(quarteiraoSelecionado?.latitude_quadra) || -8.3797, lng: Number(quarteiraoSelecionado?.longitude_quadra) || -35.4508 }}
@@ -528,38 +539,49 @@ const CadastroFace: React.FC = () => {
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => { setSeletorAberto(null); setModalVisible(false); }}
+                onPress={() => { if (autoSaveStatus === 'saving') return; setSeletorAberto(null); setModalVisible(false); }}
+                disabled={autoSaveStatus === 'saving'}
               >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text style={styles.cancelButtonText}>{editando ? 'Fechar' : 'Cancelar'}</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity
+              {editando && <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={cancelarAtualizacao}
+                disabled={autoSaveStatus === 'saving'}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>}
+
+              {editando ? (
+                <Text numberOfLines={2} style={{ color: autoSaveStatus === 'error' ? '#C62828' : colors.textSecondary, alignSelf: 'center', flexShrink: 1, fontSize: 12, marginHorizontal: 4 }}>
+                  {autoSaveStatus === 'saving' ? 'Salvando alterações…' : autoSaveStatus === 'error' ? 'Falha ao salvar. Tente novamente.' : 'Alterações salvas automaticamente'}
+                </Text>
+              ) : <TouchableOpacity
                 style={[styles.modalButton, styles.saveButton]}
                 onPress={salvarFace}
               >
-                <Text style={styles.saveButtonText}>
-                  {editando ? 'Atualizar' : 'Cadastrar'}
-                </Text>
-              </TouchableOpacity>
+                <Text style={styles.saveButtonText}>Cadastrar</Text>
+              </TouchableOpacity>}
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
       <Modal visible={seletorAberto !== null} transparent animationType="fade" onRequestClose={() => setSeletorAberto(null)}>
         <View style={styles.selectorOverlay}>
-          <View style={styles.selectorContent}>
+          <View style={[styles.selectorContent, { backgroundColor: colors.card }]}>
             <View style={styles.selectorHeader}>
-              <Text style={styles.selectorTitle}>{seletorAberto === 'quarteirao' ? 'Selecione o quarteirão' : 'Selecione o status'}</Text>
+              <Text style={[styles.selectorTitle, { color: colors.text }]}>{seletorAberto === 'quarteirao' ? 'Selecione o quarteirão' : 'Selecione o status'}</Text>
               <TouchableOpacity onPress={() => setSeletorAberto(null)} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color="#55718F" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.selectorList} contentContainerStyle={styles.selectorListContent} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
               {seletorAberto === 'status' && (['Ativo', 'Inativo'] as const).map((status) => <TouchableOpacity key={status} style={styles.dropdownOption} onPress={() => { setFormData({ ...formData, status }); setSeletorAberto(null); }}>
-                <Text style={[styles.dropdownOptionText, formData.status === status && styles.dropdownOptionTextSelected]}>{formData.status === status ? '✓ ' : ''}{status}</Text>
+                <Text style={[styles.dropdownOptionText, { color: colors.text }, formData.status === status && { color: colors.primary }]}>{formData.status === status ? '✓ ' : ''}{status}</Text>
               </TouchableOpacity>)}
               {seletorAberto === 'quarteirao' && quarteiroes.map((q) => <TouchableOpacity key={q.id_quadra} style={styles.dropdownOption} onPress={() => { const idQuarteirao = q.id_quadra.toString(); if (formData.id_quarteirao !== idQuarteirao) setFaceMapData(null); setFormData({ ...formData, id_quarteirao: idQuarteirao }); setSeletorAberto(null); }}>
-                <Text style={[styles.dropdownOptionText, formData.id_quarteirao === q.id_quadra.toString() && styles.dropdownOptionTextSelected]}>{formData.id_quarteirao === q.id_quadra.toString() ? '✓ ' : ''}{q.nome_quadra} - Nº {q.numero_quadra}</Text>
+                <Text style={[styles.dropdownOptionText, { color: colors.text }, formData.id_quarteirao === q.id_quadra.toString() && { color: colors.primary }]}>{formData.id_quarteirao === q.id_quadra.toString() ? '✓ ' : ''}{q.nome_quadra} - Nº {q.numero_quadra}</Text>
               </TouchableOpacity>)}
             </ScrollView>
           </View>
@@ -599,7 +621,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    paddingHorizontal: 30,
     paddingTop: 12,
     paddingBottom: 8,
     borderBottomWidth: 1,
@@ -631,7 +653,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 30,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
@@ -643,7 +665,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#2F80ED',
     paddingVertical: 11,
-    paddingHorizontal: 16,
+    paddingHorizontal: 30,
     borderRadius: 9,
     elevation: 2,
   },
@@ -700,7 +722,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 30,
     paddingTop: 14,
   },
   facesList: {

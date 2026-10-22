@@ -8,6 +8,7 @@ import { listFacesLocais } from '../../services/faceLocal';
 import { listFotosLocais } from '../../services/fotoLocal';
 import { listImoveisLocais } from '../../services/imovelLocal';
 import { listPontosLocais } from '../../services/pontoLocal';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const IMPORT_KEY = '@ecampo/importacoes-locais';
 
@@ -49,6 +50,7 @@ async function loadData() {
 
 const ExportarDados: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const { colors } = useTheme();
 
   const exportData = async () => {
     setLoading(true);
@@ -92,13 +94,13 @@ const ExportarDados: React.FC = () => {
     } finally { setLoading(false); }
   };
 
-  return <View style={styles.container}>
-    <Text style={styles.title}>Importar e exportar</Text>
-    <Text style={styles.description}>Troque dados estruturados sem alterar o banco local ou o servidor.</Text>
-    <TouchableOpacity style={styles.button} onPress={exportData} disabled={loading}><Text style={styles.buttonText}>Exportar pacote JSON</Text></TouchableOpacity>
-    <TouchableOpacity style={styles.secondaryButton} onPress={exportCsv} disabled={loading}><Text style={styles.secondaryText}>Exportar CSV</Text></TouchableOpacity>
-    <TouchableOpacity style={styles.secondaryButton} onPress={importGeoJson} disabled={loading}>{loading ? <ActivityIndicator color="#176B68" /> : <Text style={styles.secondaryText}>Importar GeoJSON</Text>}</TouchableOpacity>
-    <Text style={styles.note}>Importações ficam pendentes localmente até existir sincronização com o servidor.</Text>
+  return <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <Text style={[styles.title, { color: colors.text }]}>Importar e exportar</Text>
+    <Text style={[styles.description, { color: colors.textSecondary }]}>Troque dados estruturados sem alterar o banco local ou o servidor.</Text>
+    <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={exportData} disabled={loading}><Text style={[styles.buttonText, { color: colors.onPrimary }]}>Exportar pacote JSON</Text></TouchableOpacity>
+    <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={exportCsv} disabled={loading}><Text style={[styles.secondaryText, { color: colors.primary }]}>Exportar CSV</Text></TouchableOpacity>
+    <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={importGeoJson} disabled={loading}>{loading ? <ActivityIndicator color={colors.primary} /> : <Text style={[styles.secondaryText, { color: colors.primary }]}>Importar GeoJSON</Text>}</TouchableOpacity>
+    <Text style={[styles.note, { color: colors.textSecondary, backgroundColor: colors.card, borderColor: colors.border }]}>Importações ficam pendentes localmente até existir sincronização com o servidor.</Text>
   </View>;
 };
 

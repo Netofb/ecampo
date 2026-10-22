@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { faceService, imovelService, localidadeService, quarteiraoService, zonaService } from '../../services/api';
 import { addProducaoLocal, listProducaoLocal } from '../../services/producaoLocal';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -156,7 +156,7 @@ const ProducaoInicio: React.FC = () => {
           <Ionicons name="add-circle" size={20} color="#fff" /><Text style={styles.actionText}>Inserir Nova Atividade</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#E5242B' }]} onPress={() => Alert.alert('PDF', 'O PDF será disponibilizado após a sincronização dos registros.')}>
-          <MaterialIcons name="picture-as-pdf" size={20} color="#fff" /><Text style={styles.actionText}>PDF das Atividades do Dia</Text>
+          <Ionicons name="document-text-outline" size={20} color="#fff" /><Text style={styles.actionText}>PDF das Atividades do Dia</Text>
         </TouchableOpacity>
       </View>
 
@@ -165,7 +165,7 @@ const ProducaoInicio: React.FC = () => {
       </View>
 
       <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}><MaterialIcons name="table-view" size={18} color={colors.text} /><Text style={[styles.sectionTitle, { color: colors.text }]}>Produção de hoje</Text></View>
+        <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}><Ionicons name="grid-outline" size={18} color={colors.text} /><Text style={[styles.sectionTitle, { color: colors.text }]}>Produção de hoje</Text></View>
         <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.tableContent}>
           <View>
             <View style={styles.tableRow}>{['Zona', 'Localidade', 'Quarteirão', 'Seq', 'Face', 'Logradouro', 'Nº', 'Seq Imóvel', 'Complemento', 'Tipo', 'Hora', 'Visita', 'Pendência', 'A1', 'A2', 'B', 'C', 'D1', 'D2'].map(column => <Text key={column} style={[styles.tableHeader, { color: colors.text }]}>{column}</Text>)}</View>

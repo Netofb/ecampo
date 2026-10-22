@@ -1,6 +1,6 @@
 import React from "react";
 import { Modal, Pressable, Text, View } from "react-native";
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 
 type Props = {
@@ -39,28 +39,28 @@ export default function SyncResultModal({
           <View style={{ gap: 10 }}>
   
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-               <FontAwesome5 name="check-circle" size={18} color="#4CAF50" style={{ marginRight: 8 }} />
+               <Ionicons name="checkmark-circle" size={18} color="#4CAF50" style={{ marginRight: 8 }} />
                 <Text>
                 {' '}Enviados: <Text style={{ fontWeight: "700" }}>{pushedSuccess}</Text>
                 </Text>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialIcons name="download" size={18} color="#1c5cf1" style={{ marginRight: 8 }} />
+                <Ionicons name="download-outline" size={18} color="#1c5cf1" style={{ marginRight: 8 }} />
                 <Text>
                 Baixados: <Text style={{ fontWeight: "800" }}>{pulled}</Text>
                 </Text>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <FontAwesome5 name="exclamation-triangle" size={16} color="#e12020" style={{ marginRight: 8 }} />
+                <Ionicons name="warning-outline" size={16} color="#e12020" style={{ marginRight: 8 }} />
                 <Text>
                 Conflitos: <Text style={{ fontWeight: "700" }}>{pushedConflicts}</Text>
                 </Text>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <FontAwesome5 name="times-circle" size={16} color="#B45309" style={{ marginRight: 8 }} />
+              <Ionicons name="close-circle-outline" size={16} color="#B45309" style={{ marginRight: 8 }} />
               <Text>
               Erros: <Text style={{ fontWeight: "700" }}>{pushedErrors}</Text>
               </Text>
