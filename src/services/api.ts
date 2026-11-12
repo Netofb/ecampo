@@ -458,6 +458,24 @@ class ZonaService {
   }
 }
 
+class ProducaoService {
+  async getOpcoes() {
+    const response = await fetch(`${API_BASE_URL}/producao/opcoes`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('O servidor ainda não tem a rota de opções de produção. Publique a atualização do backend e tente novamente.');
+      }
+      throw new Error('Não foi possível carregar as opções de produção');
+    }
+
+    return response.json();
+  }
+}
+
 // Initialize services
 const authService = new AuthService();
 const quarteiraoService = new QuarteiraoService(authService);
@@ -465,6 +483,7 @@ const faceService = new FaceService(authService);
 const imovelService = new ImovelService(authService);
 const localidadeService = new LocalidadeService(authService);
 const zonaService = new ZonaService(authService);
+const producaoService = new ProducaoService();
 
 export {
   authService,
@@ -473,4 +492,5 @@ export {
   imovelService,
   localidadeService,
   zonaService,
+  producaoService,
 };

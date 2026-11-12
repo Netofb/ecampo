@@ -13,7 +13,7 @@ interface InputProps {
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   maxLength?: number;
-  autoComplete?: 'off' | 'password' | 'new-password';
+  autoComplete?: 'off' | 'username' | 'current-password' | 'password' | 'new-password';
   lowercase?: boolean; // NOVA PROP
 }
 

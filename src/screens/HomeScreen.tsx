@@ -80,6 +80,8 @@ const HomeScreen: React.FC = () => {
   const [syncModalData, setSyncModalData] = useState({ pushedSuccess: 0, pulled: 0, pushedConflicts: 0, pushedErrors: 0 });
   const autoSyncInProgress = useRef(false);
   const manualSyncInProgress = useRef(false);
+  const previousNetworkState = useRef<boolean | null>(null);
+  const hasSeenNetworkState = useRef(false);
   const profilePhotoUri = /^(https?:\/\/|data:image\/)/i.test(userPhoto) ? userPhoto : '';
 
 
@@ -164,7 +166,15 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(async (state) => {
-      if (!state.isConnected || autoSyncInProgress.current || manualSyncInProgress.current) return;
+      const connected = state.isConnected === true && state.isInternetReachable !== false;
+      if (!hasSeenNetworkState.current) {
+        hasSeenNetworkState.current = true;
+        previousNetworkState.current = connected;
+        return;
+      }
+      const reconnected = previousNetworkState.current === false && connected;
+      previousNetworkState.current = connected;
+      if (!reconnected || autoSyncInProgress.current || manualSyncInProgress.current) return;
       autoSyncInProgress.current = true;
       try {
         const result = await SyncService.sync();

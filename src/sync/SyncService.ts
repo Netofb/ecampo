@@ -116,56 +116,53 @@ export const SyncService = {
         );
       });
     });
-    const cursor = cursorRow?.value || '0';
-
-    const response = await fetch(`${API_BASE_URL}/sync/pull?since=${cursor}`, {
-      headers: authService.getAuthHeaders()
-    });
-
-    if (!response.ok) {
-      let message = `Falha ao baixar alterações (${response.status})`;
-      try {
-        const error = await response.json();
-        if (error.error || error.message) {
-          message += `: ${error.error || error.message}`;
-        }
-      } catch {
-        // Mantém a mensagem com o status quando a resposta não é JSON.
-      }
-      throw new Error(message);
-    }
-
-    const data = await response.json();
+    let cursor = cursorRow?.value || '0';
     let applied = 0;
 
-    for (const change of data.changes || []) {
-      if (change.op === 'delete') {
-        await new Promise<void>((resolve, reject) => {
-          db.transaction(tx => {
-            tx.executeSql('DELETE FROM local_quarteiroes WHERE server_id = ?', [change.server_id]);
-          }, reject, resolve);
-        });
-      } else {
-        await quarteiraoLocalRepo.upsertFromServer(change.data);
-      }
-      applied++;
-    }
+    while (true) {
+      const response = await fetch(`${API_BASE_URL}/sync/pull?since=${encodeURIComponent(cursor)}`, {
+        headers: authService.getAuthHeaders()
+      });
 
-    await new Promise<void>((resolve, reject) => {
-      db.transaction(tx => {
-        if (data.cursor) {
-          tx.executeSql(
-            'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)',
-            ['pull_cursor', data.cursor]
-          );
+      if (!response.ok) {
+        let message = `Falha ao baixar alterações (${response.status})`;
+        try {
+          const error = await response.json();
+          if (error.error || error.message) {
+            message += `: ${error.error || error.message}`;
+          }
+        } catch {
+          // Mantém a mensagem com o status quando a resposta não é JSON.
         }
-        
-        tx.executeSql(
-          'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)',
-          ['last_sync_at', new Date().toISOString()]
-        );
-      }, reject, resolve);
-    });
+        throw new Error(message);
+      }
+
+      const data = await response.json();
+      const changes = data.changes || [];
+      for (const change of changes) {
+        if (change.op === 'delete') {
+          await new Promise<void>((resolve, reject) => {
+            db.transaction(tx => {
+              tx.executeSql('DELETE FROM local_quarteiroes WHERE server_id = ?', [change.server_id]);
+            }, reject, resolve);
+          });
+        } else {
+          await quarteiraoLocalRepo.upsertFromServer(change.data);
+        }
+        applied++;
+      }
+
+      const nextCursor = data.cursor || cursor;
+      await new Promise<void>((resolve, reject) => {
+        db.transaction(tx => {
+          tx.executeSql('INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)', ['pull_cursor', nextCursor]);
+          tx.executeSql('INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)', ['last_sync_at', new Date().toISOString()]);
+        }, reject, resolve);
+      });
+
+      if (changes.length < 100 || String(nextCursor) === String(cursor)) break;
+      cursor = String(nextCursor);
+    }
 
     return applied;
   },

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { authService } from '../services/api';
 import { openDatabase } from '../storage/db';
 
@@ -57,7 +58,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           ibge: storedUserIbge || '',
           photo: storedUserPhoto || '',
         });
-        setStatus('authenticated');
+        // Toda abertura com sessão salva passa pelo download automático inicial.
+        setStatus('needs_sync');
       } else {
         setStatus('unauthenticated');
       }
@@ -83,6 +85,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await AsyncStorage.setItem('userIbge', response.user.ibge || '');
       await AsyncStorage.setItem('userName', firstName);
       await AsyncStorage.setItem('userPhoto', response.user.link_foto || '');
+      try {
+        await SecureStore.setItemAsync('ecampo:last-login', JSON.stringify({ cpf, password }));
+      } catch (storageError) {
+        console.warn('Não foi possível guardar o último login com segurança:', storageError);
+      }
 
       authService.setToken(response.token);
       authService.setUserId(String(response.user.id));
@@ -124,9 +131,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const completeSync = () => {
-    setStatus('authenticated');
-  };
+  const completeSync = useCallback(() => setStatus('authenticated'), []);
 
   return (
     <AuthContext.Provider value={{ status, loading, user, token, login, logout, completeSync }}>

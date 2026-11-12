@@ -10,6 +10,7 @@ import imovelRoutes from './routes/imoveis';
 import localidadeRoutes from './routes/localidades';
 import statsRoutes from './routes/stats';
 import syncRoutes from './routes/sync';
+import producaoRoutes from './routes/producao';
 
 // Load environment variables
 dotenv.config();
@@ -30,6 +31,7 @@ app.use('/api/imoveis', imovelRoutes);
 app.use('/api/localidades', localidadeRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/producao', producaoRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

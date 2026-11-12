@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import Input from '../components/Input';
 import { validateCPF, validatePassword } from '../utils/validation';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import * as SecureStore from 'expo-secure-store';
 
 const LoginScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
@@ -24,6 +25,20 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [cpfError, setCpfError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const fieldsEdited = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    SecureStore.getItemAsync('ecampo:last-login')
+      .then(value => {
+        if (!active || fieldsEdited.current || !value) return;
+        const credentials = JSON.parse(value) as { cpf?: string; password?: string };
+        if (credentials.cpf) setCpf(formatCPF(credentials.cpf));
+        if (credentials.password) setPassword(credentials.password);
+      })
+      .catch(error => console.warn('Não foi possível recuperar o último login salvo:', error));
+    return () => { active = false; };
+  }, []);
 
   const formatCPF = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
@@ -89,20 +104,22 @@ const LoginScreen: React.FC = () => {
             <Input
               label="CPF"
               value={cpf}
-              onChangeText={handleCPFChange}
+              onChangeText={(value) => { fieldsEdited.current = true; handleCPFChange(value); }}
               placeholder="000.000.000-00"
               keyboardType="numeric"
               maxLength={14}
               autoCapitalize="none"
+              autoComplete="username"
               error={cpfError}
             />
 
             <Input
               label="Senha"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(value) => { fieldsEdited.current = true; setPassword(value); }}
               placeholder="Digite sua senha"
               secureTextEntry
+              autoComplete="current-password"
               error={passwordError}
               maxLength={30}
               

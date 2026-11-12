@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "eCampo",
-    "slug": "ecampo",
+    "slug": "ecampo-lxs797br4pv29m9gjuwr",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -42,15 +42,17 @@
             "enableShrinkResourcesInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "64e3beca-f6c0-45cc-8160-f949c073e8d8"
+        "projectId": "da0ae60d-6d4b-4445-b61a-6656380b37e3"
       }
-    }
+    },
+    "owner": "netofb"
   }
 }

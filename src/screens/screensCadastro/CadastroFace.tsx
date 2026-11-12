@@ -227,8 +227,8 @@ const CadastroFace: React.FC = () => {
       status: original.formData.status,
       linha_geojson: original.faceMapData?.geojson ?? null,
       cor_linha: original.face.cor_linha || faceColor,
-      latitude: original.faceMapData?.centroid.lat ?? null,
-      longitude: original.faceMapData?.centroid.lng ?? null,
+      latitude: original.faceMapData?.centroid.lat,
+      longitude: original.faceMapData?.centroid.lng,
     };
     try {
       if (original.face.local_id) {
@@ -561,7 +561,7 @@ const CadastroFace: React.FC = () => {
                 style={[styles.modalButton, styles.saveButton]}
                 onPress={salvarFace}
               >
-                <Text style={styles.saveButtonText}>Cadastrar</Text>
+                <Text style={styles.saveButtonText}>Salvar</Text>
               </TouchableOpacity>}
             </View>
           </View>
