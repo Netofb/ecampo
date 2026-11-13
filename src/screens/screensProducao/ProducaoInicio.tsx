@@ -38,6 +38,15 @@ const ProducaoInicio: React.FC = () => {
   const [amostraInicio, setAmostraInicio] = useState('0');
   const [amostraFim, setAmostraFim] = useState('0');
   const [tubitos, setTubitos] = useState('0');
+  const [depositosInspecionados, setDepositosInspecionados] = useState<Record<string, string>>({ a1: '0', a2: '0', b: '0', c: '0', d1: '0', d2: '0', e: '0' });
+  const [imovelInspecionado, setImovelInspecionado] = useState('Sim');
+  const [depositosEliminados, setDepositosEliminados] = useState('0');
+  const [imoveisTratados, setImoveisTratados] = useState('0');
+  const [larvicidaTipo, setLarvicidaTipo] = useState('');
+  const [larvicidaQtdCarga, setLarvicidaQtdCarga] = useState('0');
+  const [larvicidaQtdDepositos, setLarvicidaQtdDepositos] = useState('0');
+  const [adulticidaTipo, setAdulticidaTipo] = useState('');
+  const [adulticidaQtdCarga, setAdulticidaQtdCarga] = useState('0');
   const [selectedFace, setSelectedFace] = useState<any | null>(null);
   const [selectedImovel, setSelectedImovel] = useState<any | null>(null);
 
@@ -60,6 +69,9 @@ const ProducaoInicio: React.FC = () => {
         setLocalidades(loadedLocalidades);
         if (productionOptionsResult.options) {
           setOpcoesProducao(productionOptionsResult.options);
+          if (!Array.isArray(productionOptionsResult.options.larvicidas) || productionOptionsResult.options.larvicidas.length === 0) {
+            Alert.alert('Tipos de larvicida', 'O servidor conectado não retornou os tipos cadastrados. Atualize e reinicie/publique o backend para carregar tb_larvicidas.');
+          }
         } else {
           Alert.alert('Opções de produção', productionOptionsResult.error?.message || 'Não foi possível carregar as opções cadastradas no banco.');
         }
@@ -133,10 +145,14 @@ const ProducaoInicio: React.FC = () => {
     visita: opcoesProducao.visitas || [],
     pendencia: opcoesProducao.pendencias || [],
     quarteirao: quarteiroes.map(item => item.nome_quadra || `#${item.id_quadra}`),
-    face: faces.filter(face => !selected || face.id_quarteirao === selected.id_quadra).map(face => `Face ${face.numero_face}`),
+    face: faces.filter(face => !selected || String(face.id_quarteirao ?? face.id_quadra) === String(selected.id_quadra)).map(face => `Face ${face.numero_face}`),
     imovel: imoveis.filter(imovel => !selectedFace || imovel.id_face === selectedFace.id_face).map(imovel => `Nº ${imovel.numero || imovel.id_imovel}`),
+    imovelInspecionado: ['Sim', 'Não'],
+    larvicida: opcoesProducao.larvicidas || [],
+    adulticida: opcoesProducao.adulticidas || [],
   };
-  const dropdownTitles: Record<string, string> = { zona: 'Selecione a zona', localidade: 'Selecione a localidade', atividade: 'Selecione a atividade', ciclo: 'Selecione o ciclo/ano', tipo: 'Selecione o tipo', concluida: 'Zona concluída?', visita: 'Visita (N/R)', pendencia: 'Pendência', quarteirao: 'Selecione o quarteirão', face: 'Selecione a face', imovel: 'Selecione o imóvel' };
+  const dropdownTitles: Record<string, string> = { zona: 'Selecione a zona', localidade: 'Selecione a localidade', atividade: 'Selecione a atividade', ciclo: 'Selecione o ciclo/ano', tipo: 'Selecione o tipo', concluida: 'Zona concluída?', visita: 'Visita (N/R)', pendencia: 'Pendência', quarteirao: 'Selecione o quarteirão', face: 'Selecione a face', imovel: 'Selecione o imóvel', imovelInspecionado: 'Imóvel Inspecionado', larvicida: 'Larvicida Tipo', adulticida: 'Adulticida Tipo' };
+  const isLevantamento = /^LI(?:\+T)?\s*[-–]/i.test(atividade.trim()) || atividade.toLocaleLowerCase('pt-BR').includes('levantamento');
   const openDropdown = (key: string) => setActiveDropdown(key);
   const selectDropdownValue = (value: string) => {
     if (activeDropdown === 'zona') setSelectedZona(value);
@@ -147,12 +163,15 @@ const ProducaoInicio: React.FC = () => {
     if (activeDropdown === 'concluida') setZonaConcluida(value);
     if (activeDropdown === 'visita') setVisita(value);
     if (activeDropdown === 'pendencia') setPendencia(value);
+    if (activeDropdown === 'imovelInspecionado') setImovelInspecionado(value);
+    if (activeDropdown === 'larvicida') setLarvicidaTipo(value);
+    if (activeDropdown === 'adulticida') setAdulticidaTipo(value);
     if (activeDropdown === 'quarteirao') {
       const quarteirao = quarteiroes.find(item => (item.nome_quadra || `#${item.id_quadra}`) === value);
       if (quarteirao) { setSelected(quarteirao); setSelectedFace(null); setSelectedImovel(null); }
     }
     if (activeDropdown === 'face') {
-      const face = faces.find(item => `Face ${item.numero_face}` === value);
+      const face = faces.find(item => (!selected || String(item.id_quarteirao ?? item.id_quadra) === String(selected.id_quadra)) && `Face ${item.numero_face}` === value);
       if (face) { setSelectedFace(face); setSelectedImovel(null); }
     }
     if (activeDropdown === 'imovel') {
@@ -186,7 +205,7 @@ const ProducaoInicio: React.FC = () => {
         <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.tableContent}>
           <View>
             <View style={styles.tableRow}>{['Zona', 'Localidade', 'Quarteirão', 'Seq', 'Face', 'Logradouro', 'Nº', 'Seq Imóvel', 'Complemento', 'Tipo', 'Hora', 'Visita', 'Pendência', 'A1', 'A2', 'B', 'C', 'D1', 'D2'].map(column => <Text key={column} style={[styles.tableHeader, { color: colors.text }]}>{column}</Text>)}</View>
-            {entries.length === 0 ? <Text style={[styles.emptyTable, { color: colors.textSecondary }]}>Nenhum registro encontrado</Text> : entries.map(entry => <View key={entry.id} style={styles.tableRow}><Text style={styles.tableCell}>{entry.quarteiraoNome}</Text><Text style={styles.tableCell}>{entry.cultura}</Text><Text style={styles.tableCell}>{entry.safra}</Text></View>)}
+            {entries.length === 0 ? <Text style={[styles.emptyTable, { color: colors.textSecondary }]}>Nenhum registro encontrado</Text> : entries.map(entry => <View key={entry.id} style={styles.tableRow}><Text style={[styles.tableCell, { color: colors.text }]}>{entry.quarteiraoNome}</Text><Text style={[styles.tableCell, { color: colors.text }]}>{entry.cultura}</Text><Text style={[styles.tableCell, { color: colors.text }]}>{entry.safra}</Text></View>)}
           </View>
         </ScrollView>
         <View style={[styles.totals, { borderTopColor: colors.border }]}><Text style={[styles.totalText, { color: colors.text }]}>TOTAIS</Text><Text style={[styles.totalText, { color: colors.text }]}>{entries.length}</Text></View>
@@ -202,7 +221,7 @@ const ProducaoInicio: React.FC = () => {
           <View style={[styles.activityModal, { backgroundColor: colors.card }]}>
             <View style={styles.activityHeader}>
               <Text style={styles.activityTitle}>Adicionar Atividade -</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close" size={25} color="#DCE5FF" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close" size={25} color={colors.onPrimary} /></TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={[styles.activityBody, { backgroundColor: colors.card }]} keyboardShouldPersistTaps="handled">
               <View style={styles.fieldGrid}>
@@ -210,7 +229,7 @@ const ProducaoInicio: React.FC = () => {
                 <View style={styles.field}><Text style={styles.fieldLabel}>Selecione a Localidade</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('localidade')}><Text style={styles.selectValue} numberOfLines={1}>{selectedLocalidade || selected?.nome_localidade || 'Selecione uma localidade'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                 <View style={styles.field}><Text style={styles.fieldLabel}>Atividade</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('atividade')}><Text style={styles.selectValue}>{atividade || 'Selecione a atividade'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                 <View style={styles.field}><Text style={styles.fieldLabel}>Data Atividade</Text><TextInput style={styles.activityInput} value={dataAtividade} onChangeText={setDataAtividade} /></View>
-                <View style={styles.field}><Text style={styles.fieldLabel}>Ciclo/Ano</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('ciclo')}><Text style={styles.selectValue}>{cicloAno || 'Selecione o ciclo/ano'}</Text><Ionicons name="chevron-down" size={18} color="#173BFF" /></TouchableOpacity></View>
+                <View style={styles.field}><Text style={styles.fieldLabel}>Ciclo/Ano</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('ciclo')}><Text style={styles.selectValue}>{cicloAno || 'Selecione o ciclo/ano'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                 <View style={styles.field}><Text style={styles.fieldLabel}>Tipo</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('tipo')}><Text style={styles.selectValue}>{tipoAtividade || 'Selecione o tipo'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                 <View style={styles.field}><Text style={styles.fieldLabel}>Zona Concluída?</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('concluida')}><Text style={styles.selectValue}>{zonaConcluida || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
               </View>
@@ -226,11 +245,46 @@ const ProducaoInicio: React.FC = () => {
                 <View style={styles.fieldGrid}><View style={styles.field}><Text style={styles.fieldLabel}>Hora Visita</Text><TextInput style={styles.activityInput} value={horaVisita} onChangeText={setHoraVisita} /></View><View style={styles.field}><Text style={styles.fieldLabel}>Visita (N/R)</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('visita')}><Text style={styles.selectValue}>{visita || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View><View style={styles.field}><Text style={styles.fieldLabel}>Pendência</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('pendencia')}><Text style={styles.selectValue}>{pendencia || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View></View>
               </View>
 
+              {isLevantamento && <View style={styles.depositsBox}>
+                <Text style={styles.subsectionTitle}>Nº de Depósitos Inspecionados</Text>
+                <View style={styles.fieldGrid}>
+                  {([['a1', 'A1'], ['a2', 'A2'], ['b', 'B'], ['c', 'C'], ['d1', 'D1'], ['d2', 'D2'], ['e', 'E']] as const).map(([key, label]) => <View key={key} style={[styles.field, styles.depositInputField]}><Text style={styles.fieldLabel}>{label}</Text><TextInput style={styles.activityInput} value={depositosInspecionados[key]} onChangeText={value => setDepositosInspecionados(current => ({ ...current, [key]: value.replace(/[^0-9]/g, '') }))} keyboardType="numeric" /></View>)}
+                  <View style={[styles.field, styles.inspectedField]}><Text style={styles.fieldLabel}>Imóvel Inspecionado</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('imovelInspecionado')}><Text style={styles.selectValue}>{imovelInspecionado}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
+                </View>
+              </View>}
+              {atividade.trim().toLocaleUpperCase('pt-BR').startsWith('LI+T') && <View style={styles.treatmentBox}>
+                <Text style={styles.treatmentTitle}>Tratamento</Text>
+                <View style={styles.treatmentTopRow}>
+                  <View style={styles.treatmentHalf}>
+                    <View style={styles.treatmentFields}>
+                      <View style={styles.treatmentField}><Text style={styles.treatmentLabel}>Depósitos Eliminados</Text><TextInput style={styles.treatmentInput} value={depositosEliminados} onChangeText={setDepositosEliminados} keyboardType="numeric" /></View>
+                      <View style={styles.treatmentField}><Text style={styles.treatmentLabel}>Imóveis Tratados</Text><TextInput style={styles.treatmentInput} value={imoveisTratados} onChangeText={setImoveisTratados} keyboardType="numeric" /></View>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.treatmentProductsRow}>
+                  <View style={styles.treatmentProductGroup}>
+                    <Text style={styles.treatmentProductTitle}>Larvicida</Text>
+                    <View style={styles.treatmentFields}>
+                      <View style={[styles.treatmentField, styles.treatmentSelectField]}><Text style={styles.treatmentLabel}>Larvicida Tipo</Text><TouchableOpacity style={styles.treatmentSelect} onPress={() => openDropdown('larvicida')}><Text style={styles.selectValue} numberOfLines={1}>{larvicidaTipo || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
+                      <View style={styles.treatmentField}><Text style={styles.treatmentLabel}>Qtd Carga</Text><TextInput style={styles.treatmentInput} value={larvicidaQtdCarga} onChangeText={setLarvicidaQtdCarga} keyboardType="numeric" /></View>
+                      <View style={styles.treatmentField}><Text style={styles.treatmentLabel}>Qtd Depo. trat.</Text><TextInput style={styles.treatmentInput} value={larvicidaQtdDepositos} onChangeText={setLarvicidaQtdDepositos} keyboardType="numeric" /></View>
+                    </View>
+                  </View>
+                  <View style={styles.treatmentProductGroup}>
+                    <Text style={styles.treatmentProductTitle}>Adulticida</Text>
+                    <View style={styles.treatmentFields}>
+                      <View style={[styles.treatmentField, styles.treatmentSelectField]}><Text style={styles.treatmentLabel}>Adulticida Tipo</Text><TouchableOpacity style={styles.treatmentSelect} onPress={() => openDropdown('adulticida')}><Text style={styles.selectValue} numberOfLines={1}>{adulticidaTipo || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
+                      <View style={styles.treatmentField}><Text style={styles.treatmentLabel}>Qtd Carga</Text><TextInput style={styles.treatmentInput} value={adulticidaQtdCarga} onChangeText={setAdulticidaQtdCarga} keyboardType="numeric" /></View>
+                    </View>
+                  </View>
+                </View>
+              </View>}
               <Text style={styles.subsectionTitle}>Coleta Amostra</Text>
               <View style={styles.sampleBox}><Text style={styles.sampleTitle}>Nº da amostra</Text><View style={styles.fieldGrid}><View style={styles.field}><Text style={styles.fieldLabel}>Nº Amostra Início</Text><TextInput style={styles.activityInput} value={amostraInicio} onChangeText={setAmostraInicio} keyboardType="numeric" /></View><View style={styles.field}><Text style={styles.fieldLabel}>Nº Amostra Fim</Text><TextInput style={styles.activityInput} value={amostraFim} onChangeText={setAmostraFim} keyboardType="numeric" /></View><View style={styles.field}><Text style={styles.fieldLabel}>Qtd Tubitos</Text><TextInput style={styles.activityInput} value={tubitos} onChangeText={setTubitos} keyboardType="numeric" /></View></View></View>
               <View style={styles.mapPanel}><TouchableOpacity style={styles.locationButton} onPress={() => Alert.alert('Localização', 'A localização atual será usada quando o GPS estiver disponível.')}><Ionicons name="navigate" size={18} color={colors.location} /><Text style={styles.locationText}>Detectar Localização Atual</Text></TouchableOpacity><Text style={styles.coordinates}>Lat: {Number(selected?.latitude_quadra || -8.3797).toFixed(6)} | Lon: {Number(selected?.longitude_quadra || -35.4508).toFixed(6)}</Text><QuarteiraoMapWebView initialPolygon={selected?.poligono_geojson || selected?.geojson || null} initialCenter={{ lat: Number(selected?.latitude_quadra) || -8.3797, lng: Number(selected?.longitude_quadra) || -35.4508 }} interactive={false} height={280} /></View>
             </ScrollView>
-            <View style={styles.activityFooter}><TouchableOpacity style={styles.cancelActivity} onPress={() => setModalVisible(false)}><Text style={styles.cancelText}>Cancelar</Text></TouchableOpacity><TouchableOpacity style={styles.saveActivity} onPress={save}><Ionicons name="save" size={17} color="#fff" /><Text style={styles.saveText}>Salvar</Text></TouchableOpacity></View>
+            <View style={styles.activityFooter}><TouchableOpacity style={styles.cancelActivity} onPress={() => setModalVisible(false)}><Text style={styles.cancelText}>Cancelar</Text></TouchableOpacity><TouchableOpacity style={styles.saveActivity} onPress={save}><Ionicons name="save" size={17} color={colors.onPrimary} /><Text style={styles.saveText}>Salvar</Text></TouchableOpacity></View>
           </View>
         </View>
       </Modal>
@@ -266,7 +320,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   sectionHeader: { minHeight: 50, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6, borderBottomWidth: 1 },
   sectionTitle: { fontSize: 16, fontWeight: '800' },
   tableContent: { minWidth: 1100, padding: 10 },
-  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#DDE3EC', minHeight: 38, alignItems: 'center' },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, minHeight: 38, alignItems: 'center' },
   tableHeader: { width: 82, fontSize: 11, fontWeight: '800', paddingHorizontal: 5 },
   tableCell: { width: 82, fontSize: 11, paddingHorizontal: 5 },
   emptyTable: { padding: 16, textAlign: 'center' },
@@ -277,8 +331,8 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 20, fontWeight: '800' },
   activityModal: { height: '96%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
-  activityHeader: { minHeight: 58, backgroundColor: '#4D70D9', paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  activityTitle: { color: '#fff', fontSize: 21, fontWeight: '500' },
+  activityHeader: { minHeight: 58, backgroundColor: colors.primary, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  activityTitle: { color: colors.onPrimary, fontSize: 21, fontWeight: '500' },
   activityBody: { padding: 20, gap: 20 },
   fieldGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 18 },
   field: { flexGrow: 1, flexBasis: '22%', minWidth: 150 },
@@ -292,8 +346,8 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   activityInput: { minHeight: 46, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: 7, paddingHorizontal: 14, color: colors.primary, fontSize: 16, fontWeight: '600' },
   readonly: { backgroundColor: colors.background },
   activityPanel: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 16, gap: 18 },
-  optionSelected: { backgroundColor: '#4D70D9', borderColor: '#4D70D9' },
-  optionTextSelected: { color: '#fff' },
+  optionSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  optionTextSelected: { color: colors.onPrimary },
   propertyBox: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12 },
   propertyTitle: { color: colors.primary, fontSize: 14, fontWeight: '800', marginBottom: 10 },
   propertyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -302,19 +356,35 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   propertyValue: { color: colors.text, fontWeight: '700' },
   subsectionTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
   sampleBox: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, gap: 10 },
+  depositsBox: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, gap: 10 },
+  treatmentBox: { backgroundColor: '#EEE5FC', borderWidth: 1, borderColor: '#D7C8F2', borderRadius: 9, padding: 6, gap: 4 },
+  treatmentTitle: { color: colors.text, fontSize: 13, fontWeight: '700', paddingHorizontal: 4 },
+  treatmentTopRow: { borderWidth: 1, borderColor: '#D7C8F2', padding: 8, flexDirection: 'row' },
+  treatmentHalf: { width: '52%' },
+  treatmentFields: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  treatmentField: { flex: 1, minWidth: 105 },
+  treatmentSelectField: { flex: 2, minWidth: 180 },
+  treatmentLabel: { color: colors.textSecondary, fontSize: 12, marginBottom: 5 },
+  treatmentInput: { height: 34, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: 5, paddingHorizontal: 9, color: colors.primary, fontSize: 14, fontWeight: '600' },
+  treatmentSelect: { height: 34, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: 5, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center' },
+  treatmentProductsRow: { flexDirection: 'row', flexWrap: 'wrap', borderWidth: 1, borderColor: '#D7C8F2' },
+  treatmentProductGroup: { flex: 1, minWidth: 300, padding: 6, gap: 4 },
+  treatmentProductTitle: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  depositInputField: { flexGrow: 0, flexBasis: '10%', minWidth: 78 },
+  inspectedField: { flexGrow: 1, flexBasis: '30%', minWidth: 220 },
   sampleTitle: { color: colors.text, fontSize: 17, fontWeight: '500' },
   mapPanel: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 9, padding: 12, gap: 8 },
   locationButton: { alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.location, borderRadius: 5, minHeight: 38, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 5 },
   locationText: { color: colors.location, fontSize: 15 },
   coordinates: { color: colors.textSecondary, fontSize: 13 },
   activityFooter: { minHeight: 64, borderTopWidth: 1, borderTopColor: colors.border, padding: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
-  cancelActivity: { minWidth: 100, minHeight: 42, borderRadius: 7, backgroundColor: '#8A8D99', justifyContent: 'center', alignItems: 'center' },
-  saveActivity: { minWidth: 110, minHeight: 42, borderRadius: 7, backgroundColor: '#4D70D9', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 7 },
-  cancelText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  saveText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  cancelActivity: { minWidth: 100, minHeight: 42, borderRadius: 7, backgroundColor: colors.offline, justifyContent: 'center', alignItems: 'center' },
+  saveActivity: { minWidth: 110, minHeight: 42, borderRadius: 7, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 7 },
+  cancelText: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  saveText: { color: colors.onPrimary, fontSize: 16, fontWeight: '700' },
   dropdownOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', padding: 22 },
   dropdownModal: { maxHeight: '70%', borderRadius: 14, overflow: 'hidden' },
-  dropdownHeader: { minHeight: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#DDE3ED' },
+  dropdownHeader: { minHeight: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border },
   dropdownTitle: { fontSize: 18, fontWeight: '800' },
   dropdownScroll: { flexGrow: 0 },
   dropdownItem: { minHeight: 50, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
