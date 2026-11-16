@@ -16,7 +16,6 @@ export const getOpcoesProducao = async (req: AuthRequest, res: Response) => {
     const distinctProductionValues = async (column: string): Promise<string[]> => {
       const rows = await db('producao')
         .select(column)
-        .where('id_usuario', userId)
         .whereNotNull(column)
         .whereRaw('TRIM(CAST(?? AS TEXT)) <> ?', [column, ''])
         .distinct(column)
@@ -37,18 +36,19 @@ export const getOpcoesProducao = async (req: AuthRequest, res: Response) => {
       return rows.map((row: Record<string, unknown>) => String(row.tipo).trim()).filter(Boolean);
     };
 
-    const [atividades, ciclos, tipos, zonasConcluidas, visitas, pendencias, larvicidas, adulticidas] = await Promise.all([
+    const [atividades, ciclos, tipos, zonasConcluidas, visitas, pendencias, imoveisInspecionados, larvicidas, adulticidas] = await Promise.all([
       activitiesQuery,
       distinctProductionValues('ciclo_ano'),
       distinctProductionValues('cabecalho_tipo'),
       distinctProductionValues('cabecalho_zona_concluida'),
       distinctProductionValues('visita_n_r'),
       distinctProductionValues('pendencia'),
+      distinctProductionValues('imovel_insp'),
       distinctActiveTypes('tb_larvicidas', 'tipo_larvicida', 'ibge_larvicida'),
       distinctActiveTypes('tb_adulticidas', 'tipo_adulticida', 'ibge_adulticida'),
     ]);
 
-    return res.json({ atividades, ciclos, tipos, zonasConcluidas, visitas, pendencias, larvicidas, adulticidas });
+    return res.json({ atividades, ciclos, tipos, zonasConcluidas, visitas, pendencias, imoveisInspecionados, larvicidas, adulticidas });
   } catch (error) {
     console.error('Get production options error:', error);
     return res.status(500).json({ error: 'Não foi possível carregar as opções de produção' });

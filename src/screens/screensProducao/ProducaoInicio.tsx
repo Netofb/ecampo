@@ -6,6 +6,8 @@ import { addProducaoLocal, listProducaoLocal } from '../../services/producaoLoca
 import { useTheme } from '../../contexts/ThemeContext';
 import QuarteiraoMapWebView from '../../components/QuarteiraoMapWebView';
 
+type DropdownOption = { key: string; label: string; value: string };
+
 const ProducaoInicio: React.FC = () => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
@@ -135,47 +137,61 @@ const ProducaoInicio: React.FC = () => {
     ['D1 PNEUS', 0, '#E04444', 'radio-button-off'], ['D2 LIXO', 0, '#E04444', 'trash'],
     ['E NATURAIS', 0, '#2EAF68', 'leaf'],
   ] as const;
-  const dropdownOptions: Record<string, string[]> = {
-    zona: zonas.map(item => item.nome_zona).filter(Boolean),
-    localidade: localidades.map(item => item.nome_localidade).filter(Boolean),
-    atividade: (opcoesProducao.atividades || []).map((item: any) => item.nome_atividade).filter(Boolean),
-    ciclo: opcoesProducao.ciclos || [],
-    tipo: opcoesProducao.tipos || [],
-    concluida: opcoesProducao.zonasConcluidas || [],
-    visita: opcoesProducao.visitas || [],
-    pendencia: opcoesProducao.pendencias || [],
-    quarteirao: quarteiroes.map(item => item.nome_quadra || `#${item.id_quadra}`),
-    face: faces.filter(face => !selected || String(face.id_quarteirao ?? face.id_quadra) === String(selected.id_quadra)).map(face => `Face ${face.numero_face}`),
-    imovel: imoveis.filter(imovel => !selectedFace || imovel.id_face === selectedFace.id_face).map(imovel => `Nº ${imovel.numero || imovel.id_imovel}`),
-    imovelInspecionado: ['Sim', 'Não'],
-    larvicida: opcoesProducao.larvicidas || [],
-    adulticida: opcoesProducao.adulticidas || [],
+  const entityOptions = (key: string, items: any[], getLabel: (item: any) => string): DropdownOption[] => {
+    const labels = items.map(getLabel);
+    const counts = labels.reduce<Record<string, number>>((result, label) => ({ ...result, [label]: (result[label] || 0) + 1 }), {});
+    return items.map((item, index) => {
+      const value = String(item.id_zona ?? item.id_localidade ?? item.id_atividade ?? item.id_quadra ?? item.id_face ?? item.id_imovel);
+      const label = labels[index];
+      return { key: `${key}-${value}`, value, label: counts[label] > 1 ? `${label} · #${value}` : label };
+    });
+  };
+  const valueOptions = (key: string, values: string[] = []): DropdownOption[] => values.map((value, index) => ({ key: `${key}-${index}-${value}`, label: String(value), value: String(value) }));
+  const dropdownOptions: Record<string, DropdownOption[]> = {
+    zona: entityOptions('zona', zonas.filter(item => item.nome_zona), item => item.nome_zona),
+    localidade: entityOptions('localidade', localidades.filter(item => item.nome_localidade), item => item.nome_localidade),
+    atividade: (opcoesProducao.atividades || []).map((item: any) => ({ key: `atividade-${item.id_atividade}`, label: item.nome_atividade, value: item.nome_atividade })),
+    ciclo: valueOptions('ciclo', opcoesProducao.ciclos),
+    tipo: valueOptions('tipo', opcoesProducao.tipos),
+    concluida: valueOptions('concluida', opcoesProducao.zonasConcluidas),
+    visita: valueOptions('visita', opcoesProducao.visitas),
+    pendencia: valueOptions('pendencia', opcoesProducao.pendencias),
+    quarteirao: entityOptions('quarteirao', quarteiroes, item => `${item.nome_quadra || 'Quarteirão'} · Nº ${item.numero_quadra ?? item.id_quadra}`),
+    face: selected ? entityOptions('face', faces.filter(face => String(face.id_quarteirao ?? face.id_quadra) === String(selected.id_quadra)), face => `Face ${face.numero_face}`) : [],
+    imovel: selectedFace ? entityOptions('imovel', imoveis.filter(imovel => String(imovel.id_face) === String(selectedFace.id_face)), imovel => `Nº ${imovel.numero || imovel.id_imovel}`) : [],
+    imovelInspecionado: [
+      { key: 'imovelInspecionado-1', label: 'Sim', value: '1' },
+      { key: 'imovelInspecionado-0', label: 'Não', value: '0' },
+    ],
+    larvicida: valueOptions('larvicida', opcoesProducao.larvicidas),
+    adulticida: valueOptions('adulticida', opcoesProducao.adulticidas),
   };
   const dropdownTitles: Record<string, string> = { zona: 'Selecione a zona', localidade: 'Selecione a localidade', atividade: 'Selecione a atividade', ciclo: 'Selecione o ciclo/ano', tipo: 'Selecione o tipo', concluida: 'Zona concluída?', visita: 'Visita (N/R)', pendencia: 'Pendência', quarteirao: 'Selecione o quarteirão', face: 'Selecione a face', imovel: 'Selecione o imóvel', imovelInspecionado: 'Imóvel Inspecionado', larvicida: 'Larvicida Tipo', adulticida: 'Adulticida Tipo' };
   const isLevantamento = /^LI(?:\+T)?\s*[-–]/i.test(atividade.trim()) || atividade.toLocaleLowerCase('pt-BR').includes('levantamento');
   const openDropdown = (key: string) => setActiveDropdown(key);
-  const selectDropdownValue = (value: string) => {
-    if (activeDropdown === 'zona') setSelectedZona(value);
-    if (activeDropdown === 'localidade') setSelectedLocalidade(value);
-    if (activeDropdown === 'atividade') setAtividade(value);
+  const selectDropdownValue = (option: DropdownOption) => {
+    const { value, label } = option;
+    if (activeDropdown === 'zona') setSelectedZona(label);
+    if (activeDropdown === 'localidade') setSelectedLocalidade(label);
+    if (activeDropdown === 'atividade') setAtividade(label);
     if (activeDropdown === 'ciclo') setCicloAno(value);
     if (activeDropdown === 'tipo') setTipoAtividade(value);
     if (activeDropdown === 'concluida') setZonaConcluida(value);
     if (activeDropdown === 'visita') setVisita(value);
     if (activeDropdown === 'pendencia') setPendencia(value);
-    if (activeDropdown === 'imovelInspecionado') setImovelInspecionado(value);
+    if (activeDropdown === 'imovelInspecionado') setImovelInspecionado(label);
     if (activeDropdown === 'larvicida') setLarvicidaTipo(value);
     if (activeDropdown === 'adulticida') setAdulticidaTipo(value);
     if (activeDropdown === 'quarteirao') {
-      const quarteirao = quarteiroes.find(item => (item.nome_quadra || `#${item.id_quadra}`) === value);
+      const quarteirao = quarteiroes.find(item => String(item.id_quadra) === value);
       if (quarteirao) { setSelected(quarteirao); setSelectedFace(null); setSelectedImovel(null); }
     }
     if (activeDropdown === 'face') {
-      const face = faces.find(item => (!selected || String(item.id_quarteirao ?? item.id_quadra) === String(selected.id_quadra)) && `Face ${item.numero_face}` === value);
+      const face = faces.find(item => String(item.id_face) === value && (!selected || String(item.id_quarteirao ?? item.id_quadra) === String(selected.id_quadra)));
       if (face) { setSelectedFace(face); setSelectedImovel(null); }
     }
     if (activeDropdown === 'imovel') {
-      const imovel = imoveis.find(item => `Nº ${item.numero || item.id_imovel}` === value);
+      const imovel = imoveis.find(item => String(item.id_imovel) === value);
       if (imovel) setSelectedImovel(imovel);
     }
     setActiveDropdown(null);
@@ -236,7 +252,7 @@ const ProducaoInicio: React.FC = () => {
 
               <View style={styles.activityPanel}>
                 <View style={styles.fieldGrid}>
-                  <View style={[styles.field, styles.quadField]}><Text style={styles.fieldLabel}>Selecione o quarteirão</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('quarteirao')}><Text style={styles.selectValue} numberOfLines={1}>{selected?.nome_quadra || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
+                  <View style={[styles.field, styles.quadField]}><Text style={styles.fieldLabel}>Selecione o quarteirão</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('quarteirao')}><Text style={styles.selectValue} numberOfLines={1}>{selected ? `${selected.nome_quadra || 'Quarteirão'} · Nº ${selected.numero_quadra ?? selected.id_quadra}` : 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                   <View style={[styles.field, styles.seqField]}><Text style={styles.fieldLabel}>Seq</Text><TextInput style={styles.activityInput} value={seq} onChangeText={setSeq} keyboardType="numeric" /></View>
                   <View style={[styles.field, styles.faceField]}><Text style={styles.fieldLabel}>Selecione a face</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('face')}><Text style={styles.selectValue} numberOfLines={1}>{selectedFace ? `Face ${selectedFace.numero_face}` : 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                   <View style={[styles.field, styles.imovelField]}><Text style={styles.fieldLabel}>Selecione o imóvel</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('imovel')}><Text style={styles.selectValue} numberOfLines={1}>{selectedImovel ? `Nº ${selectedImovel.numero || selectedImovel.id_imovel}` : 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
@@ -252,6 +268,8 @@ const ProducaoInicio: React.FC = () => {
                   <View style={[styles.field, styles.inspectedField]}><Text style={styles.fieldLabel}>Imóvel Inspecionado</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('imovelInspecionado')}><Text style={styles.selectValue}>{imovelInspecionado}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                 </View>
               </View>}
+              <Text style={styles.subsectionTitle}>Coleta Amostra</Text>
+              <View style={styles.sampleBox}><Text style={styles.sampleTitle}>Nº da amostra</Text><View style={styles.fieldGrid}><View style={styles.field}><Text style={styles.fieldLabel}>Nº Amostra Início</Text><TextInput style={styles.activityInput} value={amostraInicio} onChangeText={setAmostraInicio} keyboardType="numeric" /></View><View style={styles.field}><Text style={styles.fieldLabel}>Nº Amostra Fim</Text><TextInput style={styles.activityInput} value={amostraFim} onChangeText={setAmostraFim} keyboardType="numeric" /></View><View style={styles.field}><Text style={styles.fieldLabel}>Qtd Tubitos</Text><TextInput style={styles.activityInput} value={tubitos} onChangeText={setTubitos} keyboardType="numeric" /></View></View></View>
               {atividade.trim().toLocaleUpperCase('pt-BR').startsWith('LI+T') && <View style={styles.treatmentBox}>
                 <Text style={styles.treatmentTitle}>Tratamento</Text>
                 <View style={styles.treatmentTopRow}>
@@ -280,8 +298,6 @@ const ProducaoInicio: React.FC = () => {
                   </View>
                 </View>
               </View>}
-              <Text style={styles.subsectionTitle}>Coleta Amostra</Text>
-              <View style={styles.sampleBox}><Text style={styles.sampleTitle}>Nº da amostra</Text><View style={styles.fieldGrid}><View style={styles.field}><Text style={styles.fieldLabel}>Nº Amostra Início</Text><TextInput style={styles.activityInput} value={amostraInicio} onChangeText={setAmostraInicio} keyboardType="numeric" /></View><View style={styles.field}><Text style={styles.fieldLabel}>Nº Amostra Fim</Text><TextInput style={styles.activityInput} value={amostraFim} onChangeText={setAmostraFim} keyboardType="numeric" /></View><View style={styles.field}><Text style={styles.fieldLabel}>Qtd Tubitos</Text><TextInput style={styles.activityInput} value={tubitos} onChangeText={setTubitos} keyboardType="numeric" /></View></View></View>
               <View style={styles.mapPanel}><TouchableOpacity style={styles.locationButton} onPress={() => Alert.alert('Localização', 'A localização atual será usada quando o GPS estiver disponível.')}><Ionicons name="navigate" size={18} color={colors.location} /><Text style={styles.locationText}>Detectar Localização Atual</Text></TouchableOpacity><Text style={styles.coordinates}>Lat: {Number(selected?.latitude_quadra || -8.3797).toFixed(6)} | Lon: {Number(selected?.longitude_quadra || -35.4508).toFixed(6)}</Text><QuarteiraoMapWebView initialPolygon={selected?.poligono_geojson || selected?.geojson || null} initialCenter={{ lat: Number(selected?.latitude_quadra) || -8.3797, lng: Number(selected?.longitude_quadra) || -35.4508 }} interactive={false} height={280} /></View>
             </ScrollView>
             <View style={styles.activityFooter}><TouchableOpacity style={styles.cancelActivity} onPress={() => setModalVisible(false)}><Text style={styles.cancelText}>Cancelar</Text></TouchableOpacity><TouchableOpacity style={styles.saveActivity} onPress={save}><Ionicons name="save" size={17} color={colors.onPrimary} /><Text style={styles.saveText}>Salvar</Text></TouchableOpacity></View>
@@ -293,7 +309,7 @@ const ProducaoInicio: React.FC = () => {
           <View style={[styles.dropdownModal, { backgroundColor: colors.card }]}>
             <View style={styles.dropdownHeader}><Text style={[styles.dropdownTitle, { color: colors.text }]}>{activeDropdown ? dropdownTitles[activeDropdown] : ''}</Text><TouchableOpacity onPress={() => setActiveDropdown(null)}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity></View>
             <ScrollView style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
-              {(activeDropdown ? dropdownOptions[activeDropdown] || [] : []).map(option => <TouchableOpacity key={option} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectDropdownValue(option)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{option}</Text><Ionicons name="chevron-forward" size={18} color={colors.textSecondary} /></TouchableOpacity>)}
+              {(activeDropdown ? dropdownOptions[activeDropdown] || [] : []).map(option => <TouchableOpacity key={option.key} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectDropdownValue(option)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{option.label}</Text><Ionicons name="chevron-forward" size={18} color={colors.textSecondary} /></TouchableOpacity>)}
               {activeDropdown && (dropdownOptions[activeDropdown] || []).length === 0 && <Text style={[styles.dropdownEmpty, { color: colors.textSecondary }]}>Nenhuma opção disponível</Text>}
             </ScrollView>
           </View>
