@@ -8,10 +8,9 @@ export const getOpcoesProducao = async (req: AuthRequest, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const user = await db('usuarios').select('ibge').where('id_usuario', userId).first();
-    const activitiesQuery = db('tb_atividades')
+    const atividades = await db('tb_atividades')
       .select('id_atividade', 'co_atividade', 'nome_atividade')
       .orderBy('nome_atividade', 'asc');
-    if (user?.ibge) activitiesQuery.where('ibge_atividade', user.ibge);
 
     const distinctProductionValues = async (column: string): Promise<string[]> => {
       const rows = await db('producao')
@@ -36,8 +35,7 @@ export const getOpcoesProducao = async (req: AuthRequest, res: Response) => {
       return rows.map((row: Record<string, unknown>) => String(row.tipo).trim()).filter(Boolean);
     };
 
-    const [atividades, ciclos, tipos, zonasConcluidas, visitas, pendencias, imoveisInspecionados, larvicidas, adulticidas] = await Promise.all([
-      activitiesQuery,
+    const [ciclos, tipos, zonasConcluidas, visitas, pendencias, imoveisInspecionados, larvicidas, adulticidas] = await Promise.all([
       distinctProductionValues('ciclo_ano'),
       distinctProductionValues('cabecalho_tipo'),
       distinctProductionValues('cabecalho_zona_concluida'),

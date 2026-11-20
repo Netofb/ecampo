@@ -1,5 +1,7 @@
 
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ecampo.onrender.com/api';
@@ -10,6 +12,7 @@ class AuthService {
   private token: string | null = null;
   private userId: string | null = null;
   private userIbge: string | null = null;
+  private refreshInFlight: Promise<boolean> | null = null;
 
   setToken(token: string) {
     this.token = token;
@@ -61,6 +64,56 @@ class AuthService {
       return data;
     } catch (error) {
       throw error;
+    }
+  }
+
+  async refreshSession(): Promise<boolean> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    this.refreshInFlight = (async () => {
+      const savedLogin = await SecureStore.getItemAsync('ecampo:last-login');
+      if (!savedLogin) return false;
+
+      let credentials: { cpf?: string; password?: string };
+      try {
+        credentials = JSON.parse(savedLogin);
+      } catch {
+        return false;
+      }
+      if (!credentials.cpf || !credentials.password) return false;
+
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+      if (response.status === 401 || response.status === 400) return false;
+      if (!response.ok) throw new Error(`Não foi possível renovar a sessão (${response.status})`);
+
+      const data = await response.json();
+      const userId = String(data.user?.id ?? data.userId ?? '');
+      if (!data.token || !userId) return false;
+
+      const firstName = data.user?.name ? String(data.user.name).split(' ')[0] : '';
+      const ibge = String(data.user?.ibge || '');
+      const photo = String(data.user?.link_foto || '');
+      this.token = data.token;
+      this.userId = userId;
+      this.userIbge = ibge;
+      await AsyncStorage.multiSet([
+        ['authToken', data.token],
+        ['userId', userId],
+        ['userCPF', credentials.cpf],
+        ['userIbge', ibge],
+        ['userName', firstName],
+        ['userPhoto', photo],
+      ]);
+      return true;
+    })();
+
+    try {
+      return await this.refreshInFlight;
+    } finally {
+      this.refreshInFlight = null;
     }
   }
 
@@ -460,19 +513,49 @@ class ZonaService {
 
 class ProducaoService {
   async getOpcoes() {
-    const response = await fetch(`${API_BASE_URL}/producao/opcoes`, {
+    const request = () => fetch(`${API_BASE_URL}/producao/opcoes`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });
+    let response = await request();
+    if (response.status === 401 && await authService.refreshSession()) response = await request();
 
     if (!response.ok) {
       if (response.status === 404) {
         throw new Error('O servidor ainda não tem a rota de opções de produção. Publique a atualização do backend e tente novamente.');
       }
-      throw new Error('Não foi possível carregar as opções de produção');
+      let detail = '';
+      try {
+        const body = await response.json();
+        detail = body.error || body.message || '';
+      } catch {
+        // Resposta sem JSON: mantém o status HTTP para diagnóstico.
+      }
+      throw new Error(`Não foi possível carregar as opções de produção (${response.status})${detail ? `: ${detail}` : ''}`);
     }
 
-    return response.json();
+    const options = await response.json();
+    const rawActivities = Array.isArray(options)
+      ? options
+      : options?.atividades ?? options?.activities ?? options?.data?.atividades ?? [];
+    const atividades = Array.isArray(rawActivities)
+      ? rawActivities.map((activity: any, index: number) => {
+          if (typeof activity === 'string') {
+            return { id_atividade: activity, nome_atividade: activity };
+          }
+          const nome = activity?.nome_atividade ?? activity?.nome ?? activity?.atividade ?? activity?.label;
+          if (!nome) return null;
+          return {
+            ...activity,
+            id_atividade: activity.id_atividade ?? activity.co_atividade ?? activity.id ?? index,
+            nome_atividade: String(nome),
+          };
+        }).filter(Boolean)
+      : [];
+    return {
+      ...(Array.isArray(options) ? {} : options),
+      atividades,
+    };
   }
 }
 

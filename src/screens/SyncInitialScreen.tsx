@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const SyncInitialScreen: React.FC = () => {
   const { colors } = useTheme();
-  const { completeSync } = useAuth();
+  const { completeSync, logout } = useAuth();
   const [online, setOnline] = useState(false);
   const [progress, setProgress] = useState('Verificando conexão com a internet...');
   const [error, setError] = useState('');
@@ -55,6 +55,10 @@ const SyncInitialScreen: React.FC = () => {
       await SyncService.sync();
       if (mounted.current) completeSync();
     } catch (error: any) {
+      if (error?.name === 'SyncAuthenticationError') {
+        await logout();
+        return;
+      }
       if (mounted.current) {
         setError(error?.message || 'Não foi possível baixar os dados.');
         setProgress('A sincronização será tentada novamente automaticamente.');
@@ -66,7 +70,7 @@ const SyncInitialScreen: React.FC = () => {
     } finally {
       syncRunning.current = false;
     }
-  }, [completeSync]);
+  }, [completeSync, logout]);
 
   useEffect(() => {
     mounted.current = true;

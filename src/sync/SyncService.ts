@@ -12,6 +12,24 @@ const API_BASE_URL = getApiUrlForDisplay();
 
 let syncInProgress = false;
 
+class SyncAuthenticationError extends Error {
+  constructor() {
+    super('Sua sessão expirou ou não é mais válida. Entre novamente para baixar as alterações.');
+    this.name = 'SyncAuthenticationError';
+  }
+}
+
+const fetchWithSession = async (url: string, init: RequestInit = {}) => {
+  const request = () => fetch(url, { ...init, headers: authService.getAuthHeaders() });
+  const response = await request();
+  if (response.status !== 401) return response;
+
+  if (!(await authService.refreshSession())) throw new SyncAuthenticationError();
+  const retryResponse = await request();
+  if (retryResponse.status === 401) throw new SyncAuthenticationError();
+  return retryResponse;
+};
+
 export const SyncService = {
   async isOnline(): Promise<boolean> {
     const state = await NetInfo.fetch();
@@ -41,9 +59,8 @@ export const SyncService = {
 
     for (const op of pending) {
       try {
-        const response = await fetch(`${API_BASE_URL}/sync/push`, {
+        const response = await fetchWithSession(`${API_BASE_URL}/sync/push`, {
           method: 'POST',
-          headers: authService.getAuthHeaders(),
           body: JSON.stringify({
             op_id: op.op_id,
             entity: op.entity,
@@ -89,6 +106,7 @@ export const SyncService = {
           throw new Error(result.message || 'Erro desconhecido');
         }
       } catch (error: any) {
+        if (error?.name === 'SyncAuthenticationError') throw error;
         await new Promise<void>((resolve, reject) => {
           db.transaction(tx => {
             tx.executeSql(
@@ -120,9 +138,7 @@ export const SyncService = {
     let applied = 0;
 
     while (true) {
-      const response = await fetch(`${API_BASE_URL}/sync/pull?since=${encodeURIComponent(cursor)}`, {
-        headers: authService.getAuthHeaders()
-      });
+      const response = await fetchWithSession(`${API_BASE_URL}/sync/pull?since=${encodeURIComponent(cursor)}`);
 
       if (!response.ok) {
         let message = `Falha ao baixar alterações (${response.status})`;

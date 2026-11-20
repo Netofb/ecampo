@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { faceService, imovelService, localidadeService, producaoService, quarteiraoService, zonaService } from '../../services/api';
@@ -25,6 +25,7 @@ const ProducaoInicio: React.FC = () => {
   const [zonas, setZonas] = useState<any[]>([]);
   const [localidades, setLocalidades] = useState<any[]>([]);
   const [opcoesProducao, setOpcoesProducao] = useState<any>({ atividades: [], ciclos: [], tipos: [], zonasConcluidas: [], visitas: [], pendencias: [] });
+  const [loadingAtividades, setLoadingAtividades] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [selectedZona, setSelectedZona] = useState('');
   const [selectedLocalidade, setSelectedLocalidade] = useState('');
@@ -52,6 +53,18 @@ const ProducaoInicio: React.FC = () => {
   const [selectedFace, setSelectedFace] = useState<any | null>(null);
   const [selectedImovel, setSelectedImovel] = useState<any | null>(null);
 
+  const loadProductionOptions = useCallback(async () => {
+    setLoadingAtividades(true);
+    try {
+      const options = await producaoService.getOpcoes();
+      setOpcoesProducao(options);
+    } catch (error: any) {
+      Alert.alert('Opções de produção', error?.message || 'Não foi possível carregar as opções cadastradas no banco.');
+    } finally {
+      setLoadingAtividades(false);
+    }
+  }, []);
+
   useEffect(() => {
     Promise.all([
       quarteiraoService.list(),
@@ -60,26 +73,18 @@ const ProducaoInicio: React.FC = () => {
       imovelService.list(),
       zonaService.list(),
       localidadeService.list(),
-      producaoService.getOpcoes().then(options => ({ options, error: null })).catch(error => ({ options: null, error })),
     ])
-      .then(([loadedQuarteiroes, loadedEntries, loadedFaces, loadedImoveis, loadedZonas, loadedLocalidades, productionOptionsResult]) => {
+      .then(([loadedQuarteiroes, loadedEntries, loadedFaces, loadedImoveis, loadedZonas, loadedLocalidades]) => {
         setQuarteiroes(loadedQuarteiroes);
         setEntries(loadedEntries);
         setFaces(loadedFaces);
         setImoveis(loadedImoveis);
         setZonas(loadedZonas);
         setLocalidades(loadedLocalidades);
-        if (productionOptionsResult.options) {
-          setOpcoesProducao(productionOptionsResult.options);
-          if (!Array.isArray(productionOptionsResult.options.larvicidas) || productionOptionsResult.options.larvicidas.length === 0) {
-            Alert.alert('Tipos de larvicida', 'O servidor conectado não retornou os tipos cadastrados. Atualize e reinicie/publique o backend para carregar tb_larvicidas.');
-          }
-        } else {
-          Alert.alert('Opções de produção', productionOptionsResult.error?.message || 'Não foi possível carregar as opções cadastradas no banco.');
-        }
       })
       .catch(error => Alert.alert('Produção', error?.message || 'Não foi possível carregar os dados para registrar atividade.'));
-  }, []);
+    void loadProductionOptions();
+  }, [loadProductionOptions]);
 
   const save = async () => {
     if (!selected || !(atividade.trim() || cultura.trim()) || !(cicloAno.trim() || safra.trim())) {
@@ -168,7 +173,12 @@ const ProducaoInicio: React.FC = () => {
   };
   const dropdownTitles: Record<string, string> = { zona: 'Selecione a zona', localidade: 'Selecione a localidade', atividade: 'Selecione a atividade', ciclo: 'Selecione o ciclo/ano', tipo: 'Selecione o tipo', concluida: 'Zona concluída?', visita: 'Visita (N/R)', pendencia: 'Pendência', quarteirao: 'Selecione o quarteirão', face: 'Selecione a face', imovel: 'Selecione o imóvel', imovelInspecionado: 'Imóvel Inspecionado', larvicida: 'Larvicida Tipo', adulticida: 'Adulticida Tipo' };
   const isLevantamento = /^LI(?:\+T)?\s*[-–]/i.test(atividade.trim()) || atividade.toLocaleLowerCase('pt-BR').includes('levantamento');
-  const openDropdown = (key: string) => setActiveDropdown(key);
+  const openDropdown = (key: string) => {
+    setActiveDropdown(key);
+    if (key === 'atividade' && !loadingAtividades && opcoesProducao.atividades.length === 0) {
+      void loadProductionOptions();
+    }
+  };
   const selectDropdownValue = (option: DropdownOption) => {
     const { value, label } = option;
     if (activeDropdown === 'zona') setSelectedZona(label);
@@ -310,7 +320,7 @@ const ProducaoInicio: React.FC = () => {
             <View style={styles.dropdownHeader}><Text style={[styles.dropdownTitle, { color: colors.text }]}>{activeDropdown ? dropdownTitles[activeDropdown] : ''}</Text><TouchableOpacity onPress={() => setActiveDropdown(null)}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity></View>
             <ScrollView style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
               {(activeDropdown ? dropdownOptions[activeDropdown] || [] : []).map(option => <TouchableOpacity key={option.key} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectDropdownValue(option)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{option.label}</Text><Ionicons name="chevron-forward" size={18} color={colors.textSecondary} /></TouchableOpacity>)}
-              {activeDropdown && (dropdownOptions[activeDropdown] || []).length === 0 && <Text style={[styles.dropdownEmpty, { color: colors.textSecondary }]}>Nenhuma opção disponível</Text>}
+              {activeDropdown && (dropdownOptions[activeDropdown] || []).length === 0 && <Text style={[styles.dropdownEmpty, { color: colors.textSecondary }]}>{activeDropdown === 'atividade' && loadingAtividades ? 'Carregando atividades...' : activeDropdown === 'atividade' ? 'O servidor não retornou atividades da tabela tb_atividades' : 'Nenhuma opção disponível'}</Text>}
             </ScrollView>
           </View>
         </View>
