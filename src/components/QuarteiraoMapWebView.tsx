@@ -196,7 +196,27 @@ function handleCommand(cmd) {
   if (cmd.type === 'SET_POLYGON' && cmd.payload) {
     drawnItems.clearLayers();
     var layer = L.geoJSON(cmd.payload, {
-      style: { color: '#2E7D32', fillOpacity: 0.15 }
+      style: function(feature) {
+        var kind = feature && feature.properties && feature.properties.mapKind;
+        var color = feature && feature.properties && feature.properties.color;
+        return {
+          color: kind === 'face' ? '#f59e0b' : (color || '#2E7D32'),
+          weight: kind === 'face' ? 4 : 2,
+          fillColor: color || '#2E7D32',
+          fillOpacity: 0.15
+        };
+      },
+      pointToLayer: function(feature, latlng) {
+        var kind = feature && feature.properties && feature.properties.mapKind;
+        var color = (feature && feature.properties && feature.properties.color) || '#3388ff';
+        return L.circleMarker(latlng, {
+          radius: kind === 'imovel' ? 8 : 6,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.9,
+          weight: 2
+        });
+      }
     });
     layer.eachLayer(function(l) { drawnItems.addLayer(l); });
     map.fitBounds(layer.getBounds(), { padding: [20, 20] });

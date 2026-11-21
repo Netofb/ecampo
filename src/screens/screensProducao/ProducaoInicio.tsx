@@ -8,6 +8,37 @@ import QuarteiraoMapWebView from '../../components/QuarteiraoMapWebView';
 
 type DropdownOption = { key: string; label: string; value: string };
 
+const parseMapGeoJSON = (value: any, id: string, mapKind: string, color: string) => {
+  if (!value) return null;
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    if (parsed?.type === 'FeatureCollection' && Array.isArray(parsed.features)) {
+      return parsed.features.map((feature: any, index: number) => ({
+        ...feature,
+        id: `${id}-${index}`,
+        properties: { ...(feature.properties || {}), mapKind, color },
+      }));
+    }
+    const feature = parsed?.type === 'Feature'
+      ? parsed
+      : { type: 'Feature', geometry: parsed, properties: {} };
+    if (!feature.geometry) return null;
+    return [{
+      ...feature,
+      id,
+      properties: { ...(feature.properties || {}), mapKind, color },
+    }];
+  } catch {
+    return null;
+  }
+};
+
+const mapCoordinate = (latitude: any, longitude: any) => {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  return Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 ? { lat, lng } : null;
+};
+
 const ProducaoInicio: React.FC = () => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
@@ -26,9 +57,12 @@ const ProducaoInicio: React.FC = () => {
   const [localidades, setLocalidades] = useState<any[]>([]);
   const [opcoesProducao, setOpcoesProducao] = useState<any>({ atividades: [], ciclos: [], tipos: [], zonasConcluidas: [], visitas: [], pendencias: [] });
   const [loadingAtividades, setLoadingAtividades] = useState(false);
+  const [dropdownLoadErrors, setDropdownLoadErrors] = useState<Record<string, string>>({});
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [selectedZona, setSelectedZona] = useState('');
+  const [selectedZonaId, setSelectedZonaId] = useState('');
   const [selectedLocalidade, setSelectedLocalidade] = useState('');
+  const [selectedLocalidadeId, setSelectedLocalidadeId] = useState('');
   const [atividade, setAtividade] = useState('');
   const [dataAtividade, setDataAtividade] = useState('15/09/2026');
   const [cicloAno, setCicloAno] = useState('');
@@ -66,24 +100,26 @@ const ProducaoInicio: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    Promise.all([
-      quarteiraoService.list(),
-      listProducaoLocal(),
-      faceService.list(),
-      imovelService.list(),
-      zonaService.list(),
-      localidadeService.list(),
-    ])
-      .then(([loadedQuarteiroes, loadedEntries, loadedFaces, loadedImoveis, loadedZonas, loadedLocalidades]) => {
-        setQuarteiroes(loadedQuarteiroes);
-        setEntries(loadedEntries);
-        setFaces(loadedFaces);
-        setImoveis(loadedImoveis);
-        setZonas(loadedZonas);
-        setLocalidades(loadedLocalidades);
-      })
-      .catch(error => Alert.alert('Produção', error?.message || 'Não foi possível carregar os dados para registrar atividade.'));
+    let active = true;
+    const load = async (key: string, request: Promise<any>, setValue: (value: any) => void) => {
+      try {
+        const value = await request;
+        if (!active) return;
+        setValue(Array.isArray(value) ? value : []);
+        setDropdownLoadErrors(previous => ({ ...previous, [key]: '' }));
+      } catch (error: any) {
+        if (!active) return;
+        setDropdownLoadErrors(previous => ({ ...previous, [key]: error?.message || 'Falha ao consultar o servidor.' }));
+      }
+    };
+    void load('quarteirao', quarteiraoService.list(), setQuarteiroes);
+    void load('face', faceService.list(), setFaces);
+    void load('imovel', imovelService.list(), setImoveis);
+    void load('zona', zonaService.list(), setZonas);
+    void load('localidade', localidadeService.list(), setLocalidades);
+    void load('entries', listProducaoLocal(), setEntries);
     void loadProductionOptions();
+    return () => { active = false; };
   }, [loadProductionOptions]);
 
   const save = async () => {
@@ -142,28 +178,61 @@ const ProducaoInicio: React.FC = () => {
     ['D1 PNEUS', 0, '#E04444', 'radio-button-off'], ['D2 LIXO', 0, '#E04444', 'trash'],
     ['E NATURAIS', 0, '#2EAF68', 'leaf'],
   ] as const;
+  const getEntityId = (key: string, item: any) => {
+    const idByEntity: Record<string, unknown> = {
+      zona: item.id_zona,
+      localidade: item.id_localidade,
+      atividade: item.id_atividade ?? item.co_atividade,
+      quarteirao: item.id_quadra ?? item.id_quarteirao ?? item.id,
+      face: item.id_face ?? item.id,
+      imovel: item.id_imovel ?? item.id,
+    };
+    return idByEntity[key];
+  };
   const entityOptions = (key: string, items: any[], getLabel: (item: any) => string): DropdownOption[] => {
-    const labels = items.map(getLabel);
+    const seenValues = new Set<string>();
+    const uniqueItems = items.filter(item => {
+      const entityId = getEntityId(key, item);
+      const value = entityId == null ? '' : String(entityId);
+      if (value === 'undefined' || value === 'null' || seenValues.has(value)) return false;
+      if (!value) return false;
+      seenValues.add(value);
+      return true;
+    });
+    const labels = uniqueItems.map(getLabel);
     const counts = labels.reduce<Record<string, number>>((result, label) => ({ ...result, [label]: (result[label] || 0) + 1 }), {});
-    return items.map((item, index) => {
-      const value = String(item.id_zona ?? item.id_localidade ?? item.id_atividade ?? item.id_quadra ?? item.id_face ?? item.id_imovel);
+    return uniqueItems.map((item, index) => {
+      const value = String(getEntityId(key, item));
       const label = labels[index];
-      return { key: `${key}-${value}`, value, label: counts[label] > 1 ? `${label} · #${value}` : label };
+      return { key: `${key}-${value}-${index}`, value, label: counts[label] > 1 ? `${label} · #${value}` : label };
     });
   };
   const valueOptions = (key: string, values: string[] = []): DropdownOption[] => values.map((value, index) => ({ key: `${key}-${index}-${value}`, label: String(value), value: String(value) }));
+  const simNaoLabel = (value: string) => value === '1' ? 'Sim' : value === '0' ? 'Não' : value;
+  const scopedLocalidades = localidades.filter(item => !selectedZonaId || item.id_zona == null || String(item.id_zona) === selectedZonaId);
+  const scopedQuarteiroes = quarteiroes.filter(item =>
+    (!selectedZonaId || item.id_zona == null || String(item.id_zona) === selectedZonaId) &&
+    (!selectedLocalidadeId || item.id_localidade == null || String(item.id_localidade) === selectedLocalidadeId)
+  );
   const dropdownOptions: Record<string, DropdownOption[]> = {
     zona: entityOptions('zona', zonas.filter(item => item.nome_zona), item => item.nome_zona),
-    localidade: entityOptions('localidade', localidades.filter(item => item.nome_localidade), item => item.nome_localidade),
+    localidade: entityOptions('localidade', scopedLocalidades.filter(item => item.nome_localidade), item => item.nome_localidade),
     atividade: (opcoesProducao.atividades || []).map((item: any) => ({ key: `atividade-${item.id_atividade}`, label: item.nome_atividade, value: item.nome_atividade })),
     ciclo: valueOptions('ciclo', opcoesProducao.ciclos),
-    tipo: valueOptions('tipo', opcoesProducao.tipos),
-    concluida: valueOptions('concluida', opcoesProducao.zonasConcluidas),
+    tipo: valueOptions('tipo', opcoesProducao.tipos).map(option => ({ ...option, label: simNaoLabel(option.value) })),
+    concluida: valueOptions('concluida', opcoesProducao.zonasConcluidas).map(option => ({ ...option, label: simNaoLabel(option.value) })),
     visita: valueOptions('visita', opcoesProducao.visitas),
     pendencia: valueOptions('pendencia', opcoesProducao.pendencias),
-    quarteirao: entityOptions('quarteirao', quarteiroes, item => `${item.nome_quadra || 'Quarteirão'} · Nº ${item.numero_quadra ?? item.id_quadra}`),
-    face: selected ? entityOptions('face', faces.filter(face => String(face.id_quarteirao ?? face.id_quadra) === String(selected.id_quadra)), face => `Face ${face.numero_face}`) : [],
-    imovel: selectedFace ? entityOptions('imovel', imoveis.filter(imovel => String(imovel.id_face) === String(selectedFace.id_face)), imovel => `Nº ${imovel.numero || imovel.id_imovel}`) : [],
+    quarteirao: entityOptions('quarteirao', scopedQuarteiroes, item => `${item.nome_quadra || 'Quarteirão'} · Nº ${item.numero_quadra ?? item.id_quadra}`),
+    face: selected ? entityOptions('face', faces.filter(face => String(face.id_quarteirao ?? face.id_quadra ?? face.quarteirao_id) === String(selected.id_quadra)), face => `Face ${face.numero_face ?? face.nome_face ?? face.id_face}`) : [],
+    imovel: selectedFace ? entityOptions('imovel', imoveis.filter(imovel => {
+      const faceId = imovel.id_face ?? imovel.face_id;
+      if (faceId != null) return String(faceId) === String(selectedFace.id_face);
+      return String(imovel.id_quarteirao) === String(selected?.id_quadra);
+    }), imovel => {
+      const numero = imovel.numero ?? imovel.seq1 ?? imovel.id_imovel ?? imovel.id;
+      return `Nº ${numero}${imovel.id_face == null && imovel.face_id == null ? ' · sem face vinculada' : ''}`;
+    }) : [],
     imovelInspecionado: [
       { key: 'imovelInspecionado-1', label: 'Sim', value: '1' },
       { key: 'imovelInspecionado-0', label: 'Não', value: '0' },
@@ -173,6 +242,34 @@ const ProducaoInicio: React.FC = () => {
   };
   const dropdownTitles: Record<string, string> = { zona: 'Selecione a zona', localidade: 'Selecione a localidade', atividade: 'Selecione a atividade', ciclo: 'Selecione o ciclo/ano', tipo: 'Selecione o tipo', concluida: 'Zona concluída?', visita: 'Visita (N/R)', pendencia: 'Pendência', quarteirao: 'Selecione o quarteirão', face: 'Selecione a face', imovel: 'Selecione o imóvel', imovelInspecionado: 'Imóvel Inspecionado', larvicida: 'Larvicida Tipo', adulticida: 'Adulticida Tipo' };
   const isLevantamento = /^LI(?:\+T)?\s*[-–]/i.test(atividade.trim()) || atividade.toLocaleLowerCase('pt-BR').includes('levantamento');
+  const mapQuarteiroes = selected ? [selected] : (selectedZonaId || selectedLocalidadeId ? scopedQuarteiroes : []);
+  const mapFeatures = mapQuarteiroes.flatMap(quarteirao => {
+    const polygon = parseMapGeoJSON(quarteirao.poligono_geojson ?? quarteirao.geojson, `quarteirao-${quarteirao.id_quadra}`, 'quarteirao', quarteirao.cor_poligono || '#3388ff');
+    if (polygon?.length) return polygon;
+    const center = mapCoordinate(quarteirao.latitude_quadra ?? quarteirao.latitude, quarteirao.longitude_quadra ?? quarteirao.longitude);
+    return center ? [{ type: 'Feature', id: `quarteirao-${quarteirao.id_quadra}-center`, geometry: { type: 'Point', coordinates: [center.lng, center.lat] }, properties: { mapKind: 'quarteirao', color: quarteirao.cor_poligono || '#3388ff' } }] : [];
+  });
+  if (selectedFace) {
+    const faceGeometry = parseMapGeoJSON(selectedFace.linha_geojson, `face-${selectedFace.id_face}`, 'face', '#f59e0b');
+    if (faceGeometry?.length) mapFeatures.push(...faceGeometry);
+    else {
+      const center = mapCoordinate(selectedFace.latitude, selectedFace.longitude);
+      if (center) mapFeatures.push({ type: 'Feature', id: `face-${selectedFace.id_face}-center`, geometry: { type: 'Point', coordinates: [center.lng, center.lat] }, properties: { mapKind: 'face', color: '#f59e0b' } });
+    }
+  }
+  if (selectedImovel) {
+    const center = mapCoordinate(selectedImovel.latitude, selectedImovel.longitude);
+    if (center) mapFeatures.push({ type: 'Feature', id: `imovel-${selectedImovel.id_imovel}`, geometry: { type: 'Point', coordinates: [center.lng, center.lat] }, properties: { mapKind: 'imovel', color: '#e11d48' } });
+  }
+  const mapAnchor = selectedImovel
+    ? mapCoordinate(selectedImovel.latitude, selectedImovel.longitude)
+    : selectedFace
+      ? mapCoordinate(selectedFace.latitude, selectedFace.longitude)
+      : selected
+        ? mapCoordinate(selected.latitude_quadra, selected.longitude_quadra)
+        : mapQuarteiroes.map(item => mapCoordinate(item.latitude_quadra, item.longitude_quadra)).find(Boolean) || null;
+  const mapInitialPolygon = mapFeatures.length ? { type: 'FeatureCollection', features: mapFeatures } : null;
+  const mapKey = `atividade-map-${selectedZonaId}-${selectedLocalidadeId}-${selected?.id_quadra || ''}-${selectedFace?.id_face || ''}-${selectedImovel?.id_imovel || ''}`;
   const openDropdown = (key: string) => {
     setActiveDropdown(key);
     if (key === 'atividade' && !loadingAtividades && opcoesProducao.atividades.length === 0) {
@@ -181,8 +278,22 @@ const ProducaoInicio: React.FC = () => {
   };
   const selectDropdownValue = (option: DropdownOption) => {
     const { value, label } = option;
-    if (activeDropdown === 'zona') setSelectedZona(label);
-    if (activeDropdown === 'localidade') setSelectedLocalidade(label);
+    if (activeDropdown === 'zona') {
+      setSelectedZona(label);
+      setSelectedZonaId(value);
+      setSelectedLocalidade('');
+      setSelectedLocalidadeId('');
+      setSelected(null);
+      setSelectedFace(null);
+      setSelectedImovel(null);
+    }
+    if (activeDropdown === 'localidade') {
+      setSelectedLocalidade(label);
+      setSelectedLocalidadeId(value);
+      setSelected(null);
+      setSelectedFace(null);
+      setSelectedImovel(null);
+    }
     if (activeDropdown === 'atividade') setAtividade(label);
     if (activeDropdown === 'ciclo') setCicloAno(value);
     if (activeDropdown === 'tipo') setTipoAtividade(value);
@@ -193,15 +304,21 @@ const ProducaoInicio: React.FC = () => {
     if (activeDropdown === 'larvicida') setLarvicidaTipo(value);
     if (activeDropdown === 'adulticida') setAdulticidaTipo(value);
     if (activeDropdown === 'quarteirao') {
-      const quarteirao = quarteiroes.find(item => String(item.id_quadra) === value);
+      const quarteirao = quarteiroes.find(item => String(item.id_quadra ?? item.id_quarteirao ?? item.id) === value);
       if (quarteirao) { setSelected(quarteirao); setSelectedFace(null); setSelectedImovel(null); }
     }
     if (activeDropdown === 'face') {
-      const face = faces.find(item => String(item.id_face) === value && (!selected || String(item.id_quarteirao ?? item.id_quadra) === String(selected.id_quadra)));
+      const face = faces.find(item => String(item.id_face ?? item.id) === value && (!selected || String(item.id_quarteirao ?? item.id_quadra ?? item.quarteirao_id) === String(selected.id_quadra ?? selected.id_quarteirao ?? selected.id)));
       if (face) { setSelectedFace(face); setSelectedImovel(null); }
     }
     if (activeDropdown === 'imovel') {
-      const imovel = imoveis.find(item => String(item.id_imovel) === value);
+      const imovel = imoveis.find(item => {
+        if (String(item.id_imovel ?? item.id) !== value) return false;
+        const faceId = item.id_face ?? item.face_id;
+        return faceId != null
+          ? String(faceId) === String(selectedFace?.id_face)
+          : String(item.id_quarteirao) === String(selected?.id_quadra);
+      });
       if (imovel) setSelectedImovel(imovel);
     }
     setActiveDropdown(null);
@@ -256,8 +373,8 @@ const ProducaoInicio: React.FC = () => {
                 <View style={styles.field}><Text style={styles.fieldLabel}>Atividade</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('atividade')}><Text style={styles.selectValue}>{atividade || 'Selecione a atividade'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                 <View style={styles.field}><Text style={styles.fieldLabel}>Data Atividade</Text><TextInput style={styles.activityInput} value={dataAtividade} onChangeText={setDataAtividade} /></View>
                 <View style={styles.field}><Text style={styles.fieldLabel}>Ciclo/Ano</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('ciclo')}><Text style={styles.selectValue}>{cicloAno || 'Selecione o ciclo/ano'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
-                <View style={styles.field}><Text style={styles.fieldLabel}>Tipo</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('tipo')}><Text style={styles.selectValue}>{tipoAtividade || 'Selecione o tipo'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
-                <View style={styles.field}><Text style={styles.fieldLabel}>Zona Concluída?</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('concluida')}><Text style={styles.selectValue}>{zonaConcluida || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
+                <View style={styles.field}><Text style={styles.fieldLabel}>Tipo</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('tipo')}><Text style={styles.selectValue}>{tipoAtividade ? simNaoLabel(tipoAtividade) : 'Selecione o tipo'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
+                <View style={styles.field}><Text style={styles.fieldLabel}>Zona Concluída?</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('concluida')}><Text style={styles.selectValue}>{zonaConcluida ? simNaoLabel(zonaConcluida) : 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
               </View>
 
               <View style={styles.activityPanel}>
@@ -308,7 +425,11 @@ const ProducaoInicio: React.FC = () => {
                   </View>
                 </View>
               </View>}
-              <View style={styles.mapPanel}><TouchableOpacity style={styles.locationButton} onPress={() => Alert.alert('Localização', 'A localização atual será usada quando o GPS estiver disponível.')}><Ionicons name="navigate" size={18} color={colors.location} /><Text style={styles.locationText}>Detectar Localização Atual</Text></TouchableOpacity><Text style={styles.coordinates}>Lat: {Number(selected?.latitude_quadra || -8.3797).toFixed(6)} | Lon: {Number(selected?.longitude_quadra || -35.4508).toFixed(6)}</Text><QuarteiraoMapWebView initialPolygon={selected?.poligono_geojson || selected?.geojson || null} initialCenter={{ lat: Number(selected?.latitude_quadra) || -8.3797, lng: Number(selected?.longitude_quadra) || -35.4508 }} interactive={false} height={280} /></View>
+              <View style={styles.mapPanel}>
+                <TouchableOpacity style={styles.locationButton} onPress={() => Alert.alert('Localização', 'A localização atual será usada quando o GPS estiver disponível.')}><Ionicons name="navigate" size={18} color={colors.location} /><Text style={styles.locationText}>Detectar Localização Atual</Text></TouchableOpacity>
+                <Text style={styles.coordinates}>{mapAnchor ? `Lat: ${mapAnchor.lat.toFixed(6)} | Lon: ${mapAnchor.lng.toFixed(6)}` : 'Selecione zona, localidade, quarteirão, face ou imóvel para posicionar o mapa.'}</Text>
+                <QuarteiraoMapWebView key={mapKey} initialPolygon={mapInitialPolygon} initialCenter={mapAnchor || { lat: -8.3797, lng: -35.4508 }} interactive={false} height={280} />
+              </View>
             </ScrollView>
             <View style={styles.activityFooter}><TouchableOpacity style={styles.cancelActivity} onPress={() => setModalVisible(false)}><Text style={styles.cancelText}>Cancelar</Text></TouchableOpacity><TouchableOpacity style={styles.saveActivity} onPress={save}><Ionicons name="save" size={17} color={colors.onPrimary} /><Text style={styles.saveText}>Salvar</Text></TouchableOpacity></View>
           </View>
@@ -320,7 +441,7 @@ const ProducaoInicio: React.FC = () => {
             <View style={styles.dropdownHeader}><Text style={[styles.dropdownTitle, { color: colors.text }]}>{activeDropdown ? dropdownTitles[activeDropdown] : ''}</Text><TouchableOpacity onPress={() => setActiveDropdown(null)}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity></View>
             <ScrollView style={styles.dropdownScroll} keyboardShouldPersistTaps="handled">
               {(activeDropdown ? dropdownOptions[activeDropdown] || [] : []).map(option => <TouchableOpacity key={option.key} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} onPress={() => selectDropdownValue(option)}><Text style={[styles.dropdownItemText, { color: colors.text }]}>{option.label}</Text><Ionicons name="chevron-forward" size={18} color={colors.textSecondary} /></TouchableOpacity>)}
-              {activeDropdown && (dropdownOptions[activeDropdown] || []).length === 0 && <Text style={[styles.dropdownEmpty, { color: colors.textSecondary }]}>{activeDropdown === 'atividade' && loadingAtividades ? 'Carregando atividades...' : activeDropdown === 'atividade' ? 'O servidor não retornou atividades da tabela tb_atividades' : 'Nenhuma opção disponível'}</Text>}
+              {activeDropdown && (dropdownOptions[activeDropdown] || []).length === 0 && <Text style={[styles.dropdownEmpty, { color: colors.textSecondary }]}>{activeDropdown === 'atividade' && loadingAtividades ? 'Carregando atividades...' : activeDropdown === 'atividade' ? 'O servidor não retornou atividades da tabela tb_atividades' : activeDropdown === 'face' && !selected ? 'Selecione um quarteirão primeiro.' : activeDropdown === 'imovel' && !selectedFace ? 'Selecione uma face primeiro.' : dropdownLoadErrors[activeDropdown] || (activeDropdown === 'quarteirao' && !quarteiroes.length ? 'Nenhum quarteirão cadastrado para este usuário.' : activeDropdown === 'face' && !faces.length ? 'Nenhuma face cadastrada para este usuário.' : activeDropdown === 'imovel' && !imoveis.length ? 'Nenhum imóvel cadastrado para este usuário.' : activeDropdown === 'face' ? 'Não há faces vinculadas a este quarteirão.' : activeDropdown === 'imovel' ? 'Não há imóveis vinculados a esta face.' : 'Nenhuma opção disponível')}</Text>}
             </ScrollView>
           </View>
         </View>

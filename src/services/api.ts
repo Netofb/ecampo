@@ -155,10 +155,12 @@ class QuarteiraoService {
 
   async list() {
     try {
-      const response = await fetch(`${API_BASE_URL}/quarteiroes`, {
+      const request = () => fetch(`${API_BASE_URL}/quarteiroes`, {
         method: 'GET',
         headers: this.authService.getAuthHeaders(),
       });
+      let response = await request();
+      if (response.status === 401 && await this.authService.refreshSession()) response = await request();
 
       if (!response.ok) {
         const details = await response.text();
@@ -251,13 +253,16 @@ class FaceService {
 
   async list() {
     try {
-      const response = await fetch(`${API_BASE_URL}/faces`, {
+      const request = () => fetch(`${API_BASE_URL}/faces`, {
         method: 'GET',
         headers: this.authService.getAuthHeaders(),
       });
+      let response = await request();
+      if (response.status === 401 && await this.authService.refreshSession()) response = await request();
 
       if (!response.ok) {
-        throw new Error('Failed to fetch faces');
+        const details = await response.text();
+        throw new Error(`Faces (${response.status}): ${details || 'resposta inválida do servidor'}`);
       }
 
       return await response.json();
@@ -352,13 +357,16 @@ class ImovelService {
 
   async list() {
     try {
-      const response = await fetch(`${API_BASE_URL}/imoveis`, {
+      const request = () => fetch(`${API_BASE_URL}/imoveis`, {
         method: 'GET',
         headers: this.authService.getAuthHeaders(),
       });
+      let response = await request();
+      if (response.status === 401 && await this.authService.refreshSession()) response = await request();
 
       if (!response.ok) {
-        throw new Error('Failed to fetch imoveis');
+        const details = await response.text();
+        throw new Error(`Imóveis (${response.status}): ${details || 'resposta inválida do servidor'}`);
       }
 
       return await response.json();
