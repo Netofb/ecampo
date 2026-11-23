@@ -189,7 +189,7 @@ const ProducaoInicio: React.FC = () => {
     };
     return idByEntity[key];
   };
-  const entityOptions = (key: string, items: any[], getLabel: (item: any) => string): DropdownOption[] => {
+  const entityOptions = (key: string, items: any[], getLabel: (item: any) => string, appendIdToDuplicateLabels = true): DropdownOption[] => {
     const seenValues = new Set<string>();
     const uniqueItems = items.filter(item => {
       const entityId = getEntityId(key, item);
@@ -204,11 +204,20 @@ const ProducaoInicio: React.FC = () => {
     return uniqueItems.map((item, index) => {
       const value = String(getEntityId(key, item));
       const label = labels[index];
-      return { key: `${key}-${value}-${index}`, value, label: counts[label] > 1 ? `${label} · #${value}` : label };
+      return { key: `${key}-${value}-${index}`, value, label: appendIdToDuplicateLabels && counts[label] > 1 ? `${label} · #${value}` : label };
     });
   };
   const valueOptions = (key: string, values: string[] = []): DropdownOption[] => values.map((value, index) => ({ key: `${key}-${index}-${value}`, label: String(value), value: String(value) }));
   const simNaoLabel = (value: string) => value === '1' ? 'Sim' : value === '0' ? 'Não' : value;
+  const firstName = (name: unknown) => String(name ?? '').trim().split(/\s+/)[0] || '';
+  const formatImovelLabel = (imovel: any) => {
+    const numero = String(imovel.numero ?? '').trim() || String(imovel.seq1 ?? '').trim();
+    const rua = String(imovel.nome_logradouro ?? '').trim();
+    const identificador = numero ? `Nº ${numero}` : 'Imóvel';
+    const responsavel = firstName(imovel.resp ?? imovel.responsavel);
+    return [identificador, rua, responsavel].filter(Boolean).join(' · ');
+  };
+  const firstNameOrDash = (name: unknown) => firstName(name) || '-';
   const scopedLocalidades = localidades.filter(item => !selectedZonaId || item.id_zona == null || String(item.id_zona) === selectedZonaId);
   const scopedQuarteiroes = quarteiroes.filter(item =>
     (!selectedZonaId || item.id_zona == null || String(item.id_zona) === selectedZonaId) &&
@@ -229,15 +238,17 @@ const ProducaoInicio: React.FC = () => {
       const faceId = imovel.id_face ?? imovel.face_id;
       if (faceId != null) return String(faceId) === String(selectedFace.id_face);
       return String(imovel.id_quarteirao) === String(selected?.id_quadra);
-    }), imovel => {
-      const numero = imovel.numero ?? imovel.seq1 ?? imovel.id_imovel ?? imovel.id;
-      return `Nº ${numero}${imovel.id_face == null && imovel.face_id == null ? ' · sem face vinculada' : ''}`;
-    }) : [],
+    }), imovel => `${formatImovelLabel(imovel)}${imovel.id_face == null && imovel.face_id == null ? ' · sem face vinculada' : ''}`, false) : [],
     imovelInspecionado: [
       { key: 'imovelInspecionado-1', label: 'Sim', value: '1' },
       { key: 'imovelInspecionado-0', label: 'Não', value: '0' },
     ],
-    larvicida: valueOptions('larvicida', opcoesProducao.larvicidas),
+    larvicida: (opcoesProducao.larvicidas || []).map((item: any, index: number) => {
+      const nome = String(typeof item === 'string' ? item : item.nome_larvicida ?? item.nome ?? '').trim();
+      const tipo = String(item.tipo_larvicida ?? item.tipo ?? '').trim();
+      const label = [nome, tipo].filter(Boolean).join(' · ');
+      return { key: `larvicida-${typeof item === 'string' ? index : item.id_larvicida ?? index}`, label, value: label };
+    }).filter((option: DropdownOption) => option.label),
     adulticida: valueOptions('adulticida', opcoesProducao.adulticidas),
   };
   const dropdownTitles: Record<string, string> = { zona: 'Selecione a zona', localidade: 'Selecione a localidade', atividade: 'Selecione a atividade', ciclo: 'Selecione o ciclo/ano', tipo: 'Selecione o tipo', concluida: 'Zona concluída?', visita: 'Visita (N/R)', pendencia: 'Pendência', quarteirao: 'Selecione o quarteirão', face: 'Selecione a face', imovel: 'Selecione o imóvel', imovelInspecionado: 'Imóvel Inspecionado', larvicida: 'Larvicida Tipo', adulticida: 'Adulticida Tipo' };
@@ -382,9 +393,9 @@ const ProducaoInicio: React.FC = () => {
                   <View style={[styles.field, styles.quadField]}><Text style={styles.fieldLabel}>Selecione o quarteirão</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('quarteirao')}><Text style={styles.selectValue} numberOfLines={1}>{selected ? `${selected.nome_quadra || 'Quarteirão'} · Nº ${selected.numero_quadra ?? selected.id_quadra}` : 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                   <View style={[styles.field, styles.seqField]}><Text style={styles.fieldLabel}>Seq</Text><TextInput style={styles.activityInput} value={seq} onChangeText={setSeq} keyboardType="numeric" /></View>
                   <View style={[styles.field, styles.faceField]}><Text style={styles.fieldLabel}>Selecione a face</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('face')}><Text style={styles.selectValue} numberOfLines={1}>{selectedFace ? `Face ${selectedFace.numero_face}` : 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
-                  <View style={[styles.field, styles.imovelField]}><Text style={styles.fieldLabel}>Selecione o imóvel</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('imovel')}><Text style={styles.selectValue} numberOfLines={1}>{selectedImovel ? `Nº ${selectedImovel.numero || selectedImovel.id_imovel}` : 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
+                  <View style={[styles.field, styles.imovelField]}><Text style={styles.fieldLabel}>Selecione o imóvel</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('imovel')}><Text style={styles.selectValue} numberOfLines={1}>{selectedImovel ? formatImovelLabel(selectedImovel) : 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View>
                 </View>
-                <View style={styles.propertyBox}><Text style={styles.propertyTitle}>DADOS DO IMÓVEL SELECIONADO</Text><View style={styles.propertyGrid}>{[['LOGRADOURO', selectedImovel?.nome_logradouro || 'Selecione um imóvel'], ['NÚMERO', selectedImovel?.numero || '-'], ['SEQ. IMÓVEL', selectedImovel?.seq || '-'], ['COMPLEMENTO', selectedImovel?.complemento || '-'], ['TIPO', selectedImovel?.tipo || '-']].map(([label, value]) => <View key={label} style={styles.property}><Text style={styles.propertyLabel}>{label}</Text><Text style={styles.propertyValue}>{value}</Text></View>)}</View></View>
+                <View style={styles.propertyBox}><Text style={styles.propertyTitle}>DADOS DO IMÓVEL SELECIONADO</Text><View style={styles.propertyGrid}>{[['LOGRADOURO', selectedImovel?.nome_logradouro || 'Selecione um imóvel'], ['NÚMERO', selectedImovel?.numero || '-'], ['RESPONSÁVEL', firstNameOrDash(selectedImovel?.resp ?? selectedImovel?.responsavel)], ['SEQ. IMÓVEL', selectedImovel?.seq || '-'], ['COMPLEMENTO', selectedImovel?.complemento || '-'], ['TIPO', selectedImovel?.tipo || '-']].map(([label, value]) => <View key={label} style={styles.property}><Text style={styles.propertyLabel}>{label}</Text><Text style={styles.propertyValue}>{value}</Text></View>)}</View></View>
                 <View style={styles.fieldGrid}><View style={styles.field}><Text style={styles.fieldLabel}>Hora Visita</Text><TextInput style={styles.activityInput} value={horaVisita} onChangeText={setHoraVisita} /></View><View style={styles.field}><Text style={styles.fieldLabel}>Visita (N/R)</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('visita')}><Text style={styles.selectValue}>{visita || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View><View style={styles.field}><Text style={styles.fieldLabel}>Pendência</Text><TouchableOpacity style={styles.select} onPress={() => openDropdown('pendencia')}><Text style={styles.selectValue}>{pendencia || 'Selecione'}</Text><Ionicons name="chevron-down" size={18} color={colors.primary} /></TouchableOpacity></View></View>
               </View>
 

@@ -139,6 +139,9 @@ $RECYCLE.BIN/
 
 # Uploads e assets temporários
 uploads/
+*.jks
+*.keystore
+*.p12
 temp/
 tmp/
 

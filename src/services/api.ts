@@ -565,6 +565,30 @@ class ProducaoService {
       atividades,
     };
   }
+
+  async getRelatorio(filters: Record<string, string>) {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) queryParams.set(key, value);
+    });
+    const queryString = queryParams.toString();
+    const url = `${API_BASE_URL}/producao/relatorio${queryString ? `?${queryString}` : ''}`;
+    const request = () => fetch(url, { method: 'GET', headers: authService.getAuthHeaders() });
+    let response = await request();
+    if (response.status === 401 && await authService.refreshSession()) response = await request();
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const body = await response.json();
+        detail = body.error || body.message || '';
+      } catch {
+        // Preserva o status HTTP quando a resposta não for JSON.
+      }
+      if (response.status === 404) throw new Error('A rota do relatório ainda não está publicada no servidor. Publique a atualização do backend e tente novamente.');
+      throw new Error(`Não foi possível consultar os registros do relatório (${response.status})${detail ? `: ${detail}` : ''}`);
+    }
+    return response.json();
+  }
 }
 
 // Initialize services
