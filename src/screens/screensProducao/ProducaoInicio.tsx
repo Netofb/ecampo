@@ -128,6 +128,54 @@ const ProducaoInicio: React.FC = () => {
       return;
     }
 
+    const selectedActivity = opcoesProducao.atividades.find((item: any) => item.nome_atividade === atividade);
+    if (!selectedActivity?.id_atividade) {
+      Alert.alert('Produção', 'Selecione uma atividade cadastrada no banco de dados.');
+      return;
+    }
+    const dateParts = dataAtividade.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const dateIso = dateParts ? `${dateParts[3]}-${dateParts[2]}-${dateParts[1]}` : dataAtividade.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) {
+      Alert.alert('Produção', 'Informe a data da atividade no formato dd/mm/aaaa.');
+      return;
+    }
+    const productionPayload = {
+      id_quarteirao: Number(selected.id_quadra),
+      seq: seq ? Number.parseInt(seq, 10) : null,
+      id_face: selectedFace ? Number(selectedFace.id_face) : null,
+      id_imovel: selectedImovel ? Number(selectedImovel.id_imovel) : null,
+      hora_visita: horaVisita || null,
+      visita_n_r: visita || null,
+      pendencia: pendencia || null,
+      imovel_insp: imovelInspecionado === 'Sim' || imovelInspecionado === '1' ? '1' : '0',
+      nu_amostra_ini: Number.parseInt(amostraInicio, 10) || 0,
+      nu_amostra_fim: Number.parseInt(amostraFim, 10) || 0,
+      qtd_tubitos: Number.parseInt(tubitos, 10) || 0,
+      depositos_eliminados: Number.parseInt(depositosEliminados, 10) || 0,
+      a1: Number.parseInt(depositosInspecionados.a1, 10) || 0,
+      a2: Number.parseInt(depositosInspecionados.a2, 10) || 0,
+      b: Number.parseInt(depositosInspecionados.b, 10) || 0,
+      c: Number.parseInt(depositosInspecionados.c, 10) || 0,
+      d1: Number.parseInt(depositosInspecionados.d1, 10) || 0,
+      d2: Number.parseInt(depositosInspecionados.d2, 10) || 0,
+      e: Number.parseInt(depositosInspecionados.e, 10) || 0,
+      imoveis_tratados: Number.parseInt(imoveisTratados, 10) || 0,
+      larvicida_tipo: larvicidaTipo || null,
+      larvicida_qtd_carga: Number.parseInt(larvicidaQtdCarga, 10) || 0,
+      larvicida_qtd_dep_trat: Number.parseInt(larvicidaQtdDepositos, 10) || 0,
+      adulticida_tipo: adulticidaTipo || null,
+      adulticida_qtd_carga: Number.parseInt(adulticidaQtdCarga, 10) || 0,
+      id_zona: selectedZonaId ? Number(selectedZonaId) : selected.id_zona ?? null,
+      atividade: String(selectedActivity.id_atividade),
+      data_atividade: dateIso,
+      ciclo_ano: cicloAno,
+      cabecalho_tipo: tipoAtividade || null,
+      cabecalho_zona_concluida: zonaConcluida || null,
+      id_localidade: selectedLocalidadeId ? Number(selectedLocalidadeId) : selected.id_localidade ?? null,
+      latitude: mapAnchor?.lat == null ? null : String(mapAnchor.lat),
+      longitude: mapAnchor?.lng == null ? null : String(mapAnchor.lng),
+    };
+
     await addProducaoLocal({
       quarteiraoId: Number(selected.id_quadra),
       quarteiraoNome: selected.nome_quadra || selected.nome || `Quarteirão ${selected.id_quadra}`,
@@ -136,6 +184,7 @@ const ProducaoInicio: React.FC = () => {
       areaPlantada,
       quantidade,
       valor,
+      payload: productionPayload,
     });
 
     setEntries(await listProducaoLocal());
@@ -154,7 +203,7 @@ const ProducaoInicio: React.FC = () => {
     setSelectedFace(null);
     setSelectedImovel(null);
     setModalVisible(false);
-    Alert.alert('Produção', 'Registro salvo localmente e marcado como pendente de sincronização.');
+    Alert.alert('Produção', 'Registro salvo no aparelho. Ele será enviado ao servidor na próxima sincronização.');
   };
 
   const metrics = [

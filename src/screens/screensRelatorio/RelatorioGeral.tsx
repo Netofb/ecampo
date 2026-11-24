@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -140,8 +141,11 @@ const RelatorioGeral: React.FC = () => {
       const records = Array.isArray(response.registros) ? response.registros : [];
       let logoBase64 = '';
       try {
-        const logoUri = Image.resolveAssetSource(require('../../../assets/logoEcampo.png'))?.uri;
-        if (logoUri) logoBase64 = await FileSystem.readAsStringAsync(logoUri, { encoding: FileSystem.EncodingType.Base64 });
+        const logoAsset = Asset.fromModule(require('../../../assets/logoEcampo.png'));
+        await logoAsset.downloadAsync();
+        if (logoAsset.localUri) {
+          logoBase64 = await FileSystem.readAsStringAsync(logoAsset.localUri, { encoding: FileSystem.EncodingType.Base64 });
+        }
       } catch (error) {
         console.warn('Não foi possível carregar o logo no PDF:', error);
       }

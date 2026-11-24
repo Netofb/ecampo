@@ -28,7 +28,7 @@ const ProducaoHistorico: React.FC = () => {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
     >
       <Text style={[styles.title, { color: colors.text }]}>Histórico de produção</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Registros locais pendentes de sincronização.</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Registros de atividade salvos neste aparelho e seu estado de envio.</Text>
       {entries.length === 0 ? (
         <Text style={[styles.empty, { color: colors.textSecondary }]}>Nenhum registro local.</Text>
       ) : (
@@ -39,7 +39,9 @@ const ProducaoHistorico: React.FC = () => {
             <Text style={[styles.text, { color: colors.textSecondary }]}>
               Área: {entry.areaPlantada || '-'} | Quantidade: {entry.quantidade || '-'}
             </Text>
-            <Text style={styles.pending}>Pendente de sincronização</Text>
+            <Text style={[styles.pending, entry.syncStatus === 'synced' && styles.synced, entry.syncStatus === 'error' && styles.error]}>
+              {entry.syncStatus === 'synced' ? `Enviado ao servidor${entry.serverId ? ` · #${entry.serverId}` : ''}` : entry.syncStatus === 'error' ? `Falha ao enviar: ${entry.syncError || 'tente sincronizar novamente'}` : 'Aguardando sincronização'}
+            </Text>
           </View>
         ))
       )}
@@ -64,6 +66,8 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
   text: { marginBottom: 4 },
   pending: { color: '#B45309', fontWeight: '700', marginTop: 6 },
+  synced: { color: '#15803D' },
+  error: { color: '#B91C1C' },
   sectionTitle: { fontSize: 18, fontWeight: '800', marginTop: 18, marginBottom: 10 },
   auditRow: { borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 8 },
   auditTitle: { fontWeight: '800', marginBottom: 4 },

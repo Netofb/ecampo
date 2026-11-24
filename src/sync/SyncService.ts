@@ -2,9 +2,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { getDatabase } from '../storage/db';
 import { quarteiraoLocalRepo } from '../repos/quarteiraoLocalRepo';
 import { authService, getApiUrlForDisplay } from '../services/api';
-import { listFotosLocais } from '../services/fotoLocal';
-import { listPontosLocais } from '../services/pontoLocal';
-import { listProducaoLocal } from '../services/producaoLocal';
+import { listProducaoLocal, updateProducaoLocalSync } from '../services/producaoLocal';
+import { listFacesLocais, updateFaceLocalSync } from '../services/faceLocal';
 
 // Mantém a sincronização na mesma API configurada para os demais serviços,
 // inclusive quando a variável de ambiente não foi definida.
@@ -119,6 +118,84 @@ export const SyncService = {
       }
     }
 
+    const pendingFaces = (await listFacesLocais()).filter(face => face.syncStatus === 'pending' || face.syncStatus === 'error');
+    for (const face of pendingFaces) {
+      try {
+        const response = await fetchWithSession(`${API_BASE_URL}/sync/push`, {
+          method: 'POST',
+          body: JSON.stringify({
+            op_id: `face-${face.id_face}`,
+            entity: 'face',
+            op: face.serverId ? 'update' : 'create',
+            server_id: face.serverId ?? null,
+            payload: {
+              numero_face: face.numero_face,
+              id_quarteirao: face.id_quarteirao,
+              nome_linha: face.nome_linha,
+              status: face.status,
+              linha_geojson: face.linha_geojson,
+              cor_linha: face.cor_linha,
+              latitude: face.latitude,
+              longitude: face.longitude,
+            },
+          }),
+        });
+        if (!response.ok) {
+          let message = `Falha ao enviar face (${response.status})`;
+          try {
+            const result = await response.json();
+            message = result.message || result.error || message;
+          } catch {}
+          throw new Error(message);
+        }
+        const result = await response.json();
+        if (result.status !== 'applied') throw new Error(result.message || 'O servidor não confirmou o envio da face.');
+        await updateFaceLocalSync(face.id_face, { syncStatus: 'synced', syncError: undefined, serverId: result.server_id ?? face.serverId });
+        success++;
+      } catch (error: any) {
+        if (error?.name === 'SyncAuthenticationError') throw error;
+        await updateFaceLocalSync(face.id_face, { syncStatus: 'error', syncError: error?.message || 'Falha ao enviar face.' });
+        errors++;
+      }
+    }
+
+    const pendingProductions = (await listProducaoLocal()).filter(entry => entry.syncStatus === 'pending' || entry.syncStatus === 'error');
+    for (const entry of pendingProductions) {
+      try {
+        const payload = entry.payload || {
+          id_quarteirao: entry.quarteiraoId,
+          atividade: entry.cultura,
+          data_atividade: entry.createdAt.slice(0, 10),
+          ciclo_ano: entry.safra,
+        };
+        const response = await fetchWithSession(`${API_BASE_URL}/sync/push`, {
+          method: 'POST',
+          body: JSON.stringify({
+            op_id: `producao-${entry.id}`,
+            entity: 'producao',
+            op: 'create',
+            payload,
+          }),
+        });
+        if (!response.ok) {
+          let message = `Falha ao enviar atividade (${response.status})`;
+          try {
+            const result = await response.json();
+            message = result.message || result.error || message;
+          } catch {}
+          throw new Error(message);
+        }
+        const result = await response.json();
+        if (result.status !== 'applied') throw new Error(result.message || 'O servidor não confirmou o envio da atividade.');
+        await updateProducaoLocalSync(entry.id, { syncStatus: 'synced', syncError: undefined, serverId: result.server_id });
+        success++;
+      } catch (error: any) {
+        if (error?.name === 'SyncAuthenticationError') throw error;
+        await updateProducaoLocalSync(entry.id, { syncStatus: 'error', syncError: error?.message || 'Falha ao enviar atividade.' });
+        errors++;
+      }
+    }
+
     return { success, conflicts, errors };
   },
 
@@ -199,12 +276,12 @@ export const SyncService = {
 
   async getSyncStatus() {
     const db = getDatabase();
-    const [fotos, pontos, producoes] = await Promise.all([
-      listFotosLocais(),
-      listPontosLocais(),
+    const [faces, producoes] = await Promise.all([
+      listFacesLocais(),
       listProducaoLocal(),
     ]);
-    const localPending = fotos.length + pontos.length + producoes.length;
+    const localPending = faces.filter(face => face.syncStatus === 'pending' || face.syncStatus === 'error').length +
+      producoes.filter(entry => entry.syncStatus === 'pending' || entry.syncStatus === 'error').length;
     return new Promise<{ pending: number; conflicts: number; lastSync: string | null }>((resolve, reject) => {
       db.transaction(tx => {
         let pending = 0, conflicts = 0, lastSync = null;

@@ -12,8 +12,11 @@ export type ProducaoLocal = {
   areaPlantada: string;
   quantidade: string;
   valor: string;
+  payload?: Record<string, any>;
   createdAt: string;
-  syncStatus: 'pending';
+  syncStatus: 'pending' | 'synced' | 'error';
+  syncError?: string;
+  serverId?: number;
 };
 
 export async function listProducaoLocal(): Promise<ProducaoLocal[]> {
@@ -37,4 +40,10 @@ export async function addProducaoLocal(entry: Omit<ProducaoLocal, 'id' | 'create
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([record, ...current]));
   await addAuditoriaLocal({ entidade: 'producao', acao: 'create', referencia: record.id, resumo: `Produção de ${record.cultura} no ${record.quarteiraoNome}` });
   return record;
+}
+
+export async function updateProducaoLocalSync(id: string, updates: Partial<Pick<ProducaoLocal, 'syncStatus' | 'syncError' | 'serverId'>>) {
+  const current = await listProducaoLocal();
+  const updated = current.map(entry => entry.id === id ? { ...entry, ...updates } : entry);
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }

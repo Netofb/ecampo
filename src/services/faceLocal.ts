@@ -14,7 +14,9 @@ export type FaceLocal = {
   latitude?: number;
   longitude?: number;
   createdAt: string;
-  syncStatus: 'pending';
+  syncStatus: 'pending' | 'synced' | 'error';
+  syncError?: string;
+  serverId?: number;
 };
 
 export async function listFacesLocais(): Promise<FaceLocal[]> {
@@ -40,8 +42,14 @@ export async function updateFaceLocal(id: string, data: Omit<FaceLocal, 'id_face
   const current = await listFacesLocais();
   const existing = current.find(face => face.id_face === id);
   if (!existing) throw new Error('Face local não encontrada');
-  const updated = { ...existing, ...data, syncStatus: 'pending' as const };
+  const updated = { ...existing, ...data, syncStatus: 'pending' as const, syncError: undefined };
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(current.map(face => face.id_face === id ? updated : face)));
   await addAuditoriaLocal({ entidade: 'face', acao: 'update', referencia: id, resumo: `Face ${updated.numero_face} atualizada localmente` });
   return updated;
+}
+
+export async function updateFaceLocalSync(id: string, updates: Partial<Pick<FaceLocal, 'syncStatus' | 'syncError' | 'serverId'>>) {
+  const current = await listFacesLocais();
+  const updated = current.map(face => face.id_face === id ? { ...face, ...updates } : face);
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
