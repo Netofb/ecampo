@@ -8,11 +8,9 @@ export const getOpcoesProducao = async (req: AuthRequest, res: Response) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const user = await db('usuarios').select('ibge').where('id_usuario', userId).first();
-    const atividadesQuery = db('tb_atividades')
+    const atividades = await db('tb_atividades')
       .select('id_atividade', 'co_atividade', 'nome_atividade')
       .orderBy('nome_atividade', 'asc');
-    if (user?.ibge) atividadesQuery.whereRaw('TRIM(ibge_atividade::text) = ?', [String(user.ibge).trim()]);
-    const atividades = await atividadesQuery;
 
     const distinctProductionValues = async (column: string): Promise<string[]> => {
       const rows = await db('producao')
