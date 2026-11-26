@@ -50,7 +50,7 @@ export const getOpcoesProducao = async (req: AuthRequest, res: Response) => {
       return query;
     };
 
-    const [ciclos, tipos, zonasConcluidas, visitas, pendencias, imoveisInspecionados, larvicidas, adulticidas] = await Promise.all([
+    const [ciclosExistentes, tipos, zonasConcluidas, visitas, pendencias, imoveisInspecionados, larvicidas, adulticidas] = await Promise.all([
       distinctProductionValues('ciclo_ano'),
       distinctProductionValues('cabecalho_tipo'),
       distinctProductionValues('cabecalho_zona_concluida'),
@@ -60,6 +60,15 @@ export const getOpcoesProducao = async (req: AuthRequest, res: Response) => {
       activeLarvicidas(),
       distinctActiveTypes('tb_adulticidas', 'tipo_adulticida', 'ibge_adulticida'),
     ]);
+
+    const anosCiclo = new Set<number>([new Date().getFullYear()]);
+    ciclosExistentes.forEach((ciclo) => {
+      const ano = ciclo.match(/(?:19|20)\d{2}/)?.[0];
+      if (ano) anosCiclo.add(Number(ano));
+    });
+    const ciclos = Array.from(anosCiclo)
+      .sort((a, b) => b - a)
+      .flatMap((ano) => Array.from({ length: 6 }, (_, index) => `${String(index + 1).padStart(2, '0')}/${ano}`));
 
     return res.json({ atividades, ciclos, tipos, zonasConcluidas, visitas, pendencias, imoveisInspecionados, larvicidas, adulticidas });
   } catch (error) {
