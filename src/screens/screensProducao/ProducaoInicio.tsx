@@ -257,6 +257,10 @@ const ProducaoInicio: React.FC = () => {
     });
   };
   const valueOptions = (key: string, values: string[] = []): DropdownOption[] => values.map((value, index) => ({ key: `${key}-${index}-${value}`, label: String(value), value: String(value) }));
+  const yesNoOptions = (key: string): DropdownOption[] => [
+    { key: `${key}-1`, label: 'Sim', value: '1' },
+    { key: `${key}-0`, label: 'Não', value: '0' },
+  ];
   const simNaoLabel = (value: string) => value === '1' ? 'Sim' : value === '0' ? 'Não' : value;
   const firstName = (name: unknown) => String(name ?? '').trim().split(/\s+/)[0] || '';
   const formatImovelLabel = (imovel: any) => {
@@ -277,8 +281,8 @@ const ProducaoInicio: React.FC = () => {
     localidade: entityOptions('localidade', scopedLocalidades.filter(item => item.nome_localidade), item => item.nome_localidade),
     atividade: (opcoesProducao.atividades || []).map((item: any) => ({ key: `atividade-${item.id_atividade}`, label: item.nome_atividade, value: item.nome_atividade })),
     ciclo: valueOptions('ciclo', opcoesProducao.ciclos),
-    tipo: valueOptions('tipo', opcoesProducao.tipos).map(option => ({ ...option, label: simNaoLabel(option.value) })),
-    concluida: valueOptions('concluida', opcoesProducao.zonasConcluidas).map(option => ({ ...option, label: simNaoLabel(option.value) })),
+    tipo: yesNoOptions('tipo'),
+    concluida: yesNoOptions('concluida'),
     visita: valueOptions('visita', opcoesProducao.visitas),
     pendencia: valueOptions('pendencia', opcoesProducao.pendencias),
     quarteirao: entityOptions('quarteirao', scopedQuarteiroes, item => `${item.nome_quadra || 'Quarteirão'} · Nº ${item.numero_quadra ?? item.id_quadra}`),
